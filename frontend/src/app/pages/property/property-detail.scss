@@ -1,0 +1,108 @@
+.tariff-card {
+  background: rgba(56, 189, 248, 0.06);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  padding: 14px 18px;
+}
+
+.tariff-header, .bank-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tariff-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #38bdf8;
+}
+
+.tariff-grid {
+  display: flex;
+  gap: 1.75rem;
+  margin-top: 10px;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  color: #cbd5e1;
+
+  strong {
+    color: #f8fafc;
+  }
+}
+
+.bank-card {
+  background: rgba(245, 158, 11, 0.06);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  padding: 14px 18px;
+}
+
+.bank-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #f59e0b;
+}
+
+.bank-body {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.bank-grid {
+  display: flex;
+  gap: 2.5rem;
+  margin-top: 10px;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  color: #cbd5e1;
+  flex: 1;
+
+  strong {
+    color: #f8fafc;
+  }
+}
+
+.bank-qr-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 6px 10px;
+  border-radius: 8px;
+
+  .qr-img {
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+    background: #fff;
+    border-radius: 4px;
+    padding: 2px;
+  }
+}
+
+.units-header {
+  padding: 18px 20px 0;
+}
+
+.table-actions {
+  justify-content: flex-end;
+}
+
+.form-actions {
+  justify-content: flex-end;
+}
+
+.divider-field {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 10px;
+  margin-top: 5px;
+}
+
+.bank-section-title {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #f59e0b;
+}

@@ -1,0 +1,231 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <div class="eyebrow">Rentals · Quản lý nhà trọ</div>
+      <h1>Tenants · Danh sách khách thuê</h1>
+      <p class="subtitle">{{ items().length }} hồ sơ khách thuê lưu trữ</p>
+    </div>
+    <div class="row">
+      <div class="search">
+        <app-icon name="search" [size]="16" />
+        <input
+          class="input"
+          id="tenant-search"
+          placeholder="Tìm theo tên, CCCD, SĐT, địa chỉ mới…"
+          [ngModel]="query()"
+          (ngModelChange)="query.set($event)"
+        />
+      </div>
+      @if (canManage()) {
+        <button class="btn btn-primary" id="tenant-new" (click)="openCreate()">
+          <app-icon name="plus" /> Thêm khách thuê
+        </button>
+      }
+    </div>
+  </header>
+
+  <div class="card flush">
+    @if (loading()) {
+      <div style="padding:20px" class="stack">
+        @for (i of [1, 2, 3, 4]; track i) {
+          <div class="skeleton" style="height:42px"></div>
+        }
+      </div>
+    } @else if (filtered().length === 0) {
+      <div class="empty">
+        <div class="empty-icon"><app-icon name="users" [size]="28" /></div>
+        <h3>Chưa có khách thuê nào</h3>
+        <p>Thêm hồ sơ khách thuê để bắt đầu tạo hợp đồng và quản lý cư trú.</p>
+      </div>
+    } @else {
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Họ và tên</th>
+              <th>Giới tính / Ngày sinh</th>
+              <th>Số điện thoại & Email</th>
+              <th>CCCD / Ngày cấp</th>
+              <th>Địa chỉ thường trú (Địa giới mới 🇻🇳)</th>
+              <th>Portal</th>
+              @if (canManage()) {
+                <th class="right">Thao tác</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (t of filtered(); track t.id) {
+              <tr>
+                <td>
+                  <div class="row" style="gap:10px">
+                    <span class="avatar">{{ t.full_name.charAt(0) }}</span>
+                    <div>
+                      <div class="primary-cell font-semibold">{{ t.full_name }}</div>
+                      <div class="faint small">{{ t.nationality || 'Việt Nam' }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div>
+                    <span class="pill-gender" [class.male]="t.gender === 'Nam'" [class.female]="t.gender === 'Nữ'">
+                      {{ t.gender || '—' }}
+                    </span>
+                  </div>
+                  <div class="muted small" style="margin-top:2px">
+                    {{ t.birth_date ? (t.birth_date | date: 'dd/MM/yyyy') : '—' }}
+                  </div>
+                </td>
+                <td>
+                  <div class="primary-cell">{{ t.phone || '—' }}</div>
+                  <div class="muted small">{{ t.email || '—' }}</div>
+                </td>
+                <td>
+                  <div class="mono muted font-semibold">{{ t.id_number || '—' }}</div>
+                  @if (t.id_issue_date) {
+                    <div class="faint small">Cấp: {{ t.id_issue_date | date: 'dd/MM/yyyy' }}</div>
+                  }
+                </td>
+                <td>
+                  <div class="address-text" [title]="formatFullAddress(t)">
+                    📍 {{ formatFullAddress(t) }}
+                  </div>
+                </td>
+                <td>
+                  @if (t.user_id) {
+                    <span class="badge-portal success">linked</span>
+                  } @else {
+                    <span class="badge-portal neutral">none</span>
+                  }
+                </td>
+                @if (canManage()) {
+                  <td class="right">
+                    <div class="actions-cell">
+                      <button class="btn btn-sm btn-secondary" (click)="openEdit(t)" title="Sửa thông tin khách thuê">
+                        <app-icon name="edit" [size]="14" />
+                      </button>
+                      <button class="btn btn-sm btn-ghost text-danger" (click)="deleteTenant(t)" title="Xóa khách thuê">
+                        ✕
+                      </button>
+                    </div>
+                  </td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>
+
+<!-- Modal thêm/sửa khách thuê -->
+@if (showModal()) {
+  <app-modal
+    [title]="editingTenant() ? 'Cập nhật khách thuê: ' + editingTenant()!.full_name : 'Thêm khách thuê mới'"
+    subtitle="Quản lý nhân thân, định danh CCCD và địa chỉ theo đơn vị hành chính mới Việt Nam"
+    (closed)="showModal.set(false)"
+  >
+    <form class="form-grid" (ngSubmit)="save()" #f="ngForm">
+      <!-- Section 1: Thông tin cá nhân -->
+      <div class="form-section-title">1. Thông tin cá nhân</div>
+
+      <div class="field full">
+        <label for="tf-name">Họ và tên *</label>
+        <input class="input" id="tf-name" name="fullName" required maxlength="200" [(ngModel)]="form.fullName" placeholder="VD: Nguyễn Văn A" />
+      </div>
+
+      <div class="field">
+        <label for="tf-gender">Giới tính</label>
+        <select class="input" id="tf-gender" name="gender" [(ngModel)]="form.gender">
+          <option value="">-- Chọn giới tính --</option>
+          <option value="Nam">Nam</option>
+          <option value="Nữ">Nữ</option>
+          <option value="Khác">Khác</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="tf-birth">Ngày sinh</label>
+        <input class="input" id="tf-birth" name="birthDate" type="date" [(ngModel)]="form.birthDate" />
+      </div>
+
+      <div class="field">
+        <label for="tf-nation">Quốc tịch</label>
+        <input class="input" id="tf-nation" name="nationality" [(ngModel)]="form.nationality" placeholder="Việt Nam" />
+      </div>
+
+      <div class="field">
+        <label for="tf-phone">Số điện thoại</label>
+        <input class="input" id="tf-phone" name="phone" maxlength="30" [(ngModel)]="form.phone" placeholder="VD: 0912 345 678" />
+      </div>
+
+      <!-- Section 2: Định danh CCCD -->
+      <div class="form-section-title">2. Định danh CCCD & Liên hệ</div>
+
+      <div class="field">
+        <label for="tf-idn">Số CCCD / CMND</label>
+        <input class="input mono" id="tf-idn" name="idNumber" maxlength="50" [(ngModel)]="form.idNumber" placeholder="VD: 079096001234" />
+      </div>
+
+      <div class="field">
+        <label for="tf-issue">Ngày cấp CCCD</label>
+        <input class="input" id="tf-issue" name="idIssueDate" type="date" [(ngModel)]="form.idIssueDate" />
+      </div>
+
+      <div class="field">
+        <label for="tf-email">Email</label>
+        <input class="input" id="tf-email" name="email" type="email" email [(ngModel)]="form.email" placeholder="tenant@example.com" />
+      </div>
+
+      <div class="field">
+        <label for="tf-user">Portal user ID (Tùy chọn)</label>
+        <input class="input mono" id="tf-user" name="userId" [(ngModel)]="form.userId" pattern="^[0-9a-fA-F-]{36}$" placeholder="UUID tài khoản đăng nhập" />
+      </div>
+
+      <!-- Section 3: Địa chỉ mới Việt Nam (Vietmap) -->
+      <div class="form-section-title">3. Địa chỉ thường trú (Địa giới mới Việt Nam 🇻🇳)</div>
+
+      <div class="field">
+        <label for="tf-city">Thành Phố / Tỉnh (Tùy chọn)</label>
+        <select class="input" id="tf-city" name="city" [(ngModel)]="form.city" (ngModelChange)="onProvinceChange($event)">
+          <option value="">-- Để trống / Tất cả tỉnh thành --</option>
+          @for (p of addressService.provinces(); track p.code) {
+            <option [value]="p.name">{{ p.name_with_type }}</option>
+          }
+        </select>
+        <span class="hint">34 Tỉnh / Thành phố mới</span>
+      </div>
+
+      <div class="field">
+        <label for="tf-ward">Xã / Phường (Dropdown) *</label>
+        <select class="input highlight-select" id="tf-ward" name="ward" [(ngModel)]="form.ward" (ngModelChange)="onWardChange($event)">
+          <option value="">-- Chọn Xã / Phường / Thị trấn --</option>
+          @for (w of availableWards(); track w.code) {
+            <option [value]="w.name_with_type">{{ w.name_with_type }}</option>
+          }
+        </select>
+        <span class="hint">Đơn vị hành chính cấp xã mới</span>
+      </div>
+
+      <div class="field full">
+        <label for="tf-street">Số nhà, tên đường (Thôn / Xóm / Ấp)</label>
+        <input class="input" id="tf-street" name="streetAddress" [(ngModel)]="form.streetAddress" placeholder="VD: Số 123 Đường Nguyễn Trãi, Thôn/Ấp..." />
+      </div>
+
+      @if (form.streetAddress || form.ward || form.city) {
+        <div class="address-preview">
+          📍 Địa chỉ xem trước:
+          <strong>{{ previewAddress() }}</strong>
+        </div>
+      }
+
+      <div class="row full" style="justify-content:flex-end;margin-top:12px">
+        <button type="button" class="btn btn-ghost" (click)="showModal.set(false)">Hủy</button>
+        <button class="btn btn-primary" id="tf-submit" [disabled]="saving() || f.invalid">
+          @if (saving()) { <span class="spinner"></span> }
+          {{ editingTenant() ? 'Lưu thay đổi' : 'Thêm khách thuê' }}
+        </button>
+      </div>
+    </form>
+  </app-modal>
+}

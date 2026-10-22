@@ -1,0 +1,45 @@
+.detail-layout {
+  grid-template-columns: minmax(0, 1.8fr) minmax(320px, 1fr);
+  align-items: start;
+
+  @media (max-width: 950px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.center {
+  text-align: center;
+}
+
+.items-header {
+  padding: 18px 20px 0;
+}
+
+.delivery-note {
+  white-space: pre-wrap;
+}
+
+.summary-row {
+  font-size: 14px;
+  margin-bottom: 6px;
+
+  &.total {
+    font-size: 18px;
+    font-weight: 700;
+  }
+}
+
+.invoice-box {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.invoice-box-eyebrow {
+  margin: 0;
+}
+
+.skeleton-detail {
+  height: 320px;
+}

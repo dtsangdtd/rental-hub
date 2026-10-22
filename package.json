@@ -1,0 +1,31 @@
+{
+  "name": "rental-hub",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Microservices platform for rental-home management, accounting and e-commerce",
+  "workspaces": [
+    "packages/*",
+    "services/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @rental/common && npm run build -w @rental/auth-service -w @rental/property-service -w @rental/accounting-service -w @rental/commerce-service -w @rental/api-gateway",
+    "typecheck": "npm run build",
+    "dev:infra": "docker compose up -d postgres rabbitmq",
+    "dev:gateway": "npm run dev -w @rental/api-gateway",
+    "dev:auth": "npm run dev -w @rental/auth-service",
+    "dev:property": "npm run dev -w @rental/property-service",
+    "dev:accounting": "npm run dev -w @rental/accounting-service",
+    "dev:commerce": "npm run dev -w @rental/commerce-service",
+    "dev:frontend": "npm start --prefix frontend",
+    "build:frontend": "npm run build --prefix frontend",
+    "build:all": "npm run build && npm run build:frontend",
+    "up": "docker compose up --build -d",
+    "down": "docker compose down",
+    "logs": "docker compose logs -f"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

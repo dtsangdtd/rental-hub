@@ -1,0 +1,545 @@
+<div class="page">
+  <!-- Top Navigation & Header -->
+  <header class="page-header no-print">
+    <div>
+      <nav class="breadcrumb">
+        <a routerLink="/invoices">Kế toán / Hóa đơn</a>
+        <span>/</span>
+        <span>Xuất hóa đơn tiền nhà (PDF)</span>
+      </nav>
+      <h1>Hóa đơn tiền nhà & Điện nước (PDF)</h1>
+      <p class="subtitle">
+        Tự động lấy tiền nhà từ Hợp đồng, đồng bộ thông tin cơ sở & tài khoản ngân hàng của chủ nhà, tự nhớ số điện nước
+        cũ.
+      </p>
+    </div>
+    <div class="actions">
+      <button class="btn btn-secondary" (click)="resetToDefaults()" title="Đặt lại biểu mẫu ban đầu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+          <path d="M3 3v5h5" />
+        </svg>
+        Mặc định
+      </button>
+      <button class="btn btn-success" (click)="saveMeterReadings()" title="Lưu số điện nước của phòng vào lịch sử">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+          <polyline points="17 21 17 13 7 13 7 21" />
+          <polyline points="7 3 7 8 15 8" />
+        </svg>
+        Lưu chỉ số phòng
+      </button>
+      <button class="btn btn-secondary" (click)="printBill()"
+        title="In trực tiếp ra máy in hoặc Lưu dưới dạng PDF chuẩn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <polyline points="6 9 6 2 18 2 18 9" />
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+          <rect x="6" y="14" width="12" height="8" />
+        </svg>
+        In / Lưu PDF
+      </button>
+      <button class="btn btn-primary" (click)="downloadPdf()" [disabled]="isExporting"
+        title="Tải file PDF hóa đơn về máy">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>
+        {{ isExporting ? 'Đang tạo PDF...' : 'Tải file PDF (.pdf)' }}
+      </button>
+    </div>
+  </header>
+
+  <!-- Notification Banner -->
+  <div *ngIf="savedMessage" class="saved-alert no-print">
+    {{ savedMessage }}
+  </div>
+
+  <!-- Responsive View Mode & Zoom Toolbar -->
+  <div class="view-mode-bar no-print">
+    <div class="view-buttons">
+      <button type="button" class="view-btn" [class.active]="viewMode === 'split'" (click)="setViewMode('split')"
+        title="Hiển thị song song cả bảng nhập và xem trước A4">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <line x1="12" y1="3" x2="12" y2="21" />
+        </svg>
+        Song song (Split)
+      </button>
+      <button type="button" class="view-btn" [class.active]="viewMode === 'editor'" (click)="setViewMode('editor')"
+        title="Chỉ hiển thị form nhập dữ liệu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+        </svg>
+        Nhập hóa đơn
+      </button>
+      <button type="button" class="view-btn" [class.active]="viewMode === 'preview'" (click)="setViewMode('preview')"
+        title="Chỉ hiển thị bản in hóa đơn A4">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+          <line x1="16" y1="17" x2="8" y2="17" />
+          <polyline points="10 9 9 9 8 9" />
+        </svg>
+        Bản in A4 & PDF
+      </button>
+    </div>
+
+    <!-- Zoom Scaling Controls for A4 Preview -->
+    <div class="zoom-controls">
+      <span class="zoom-label">Thu phóng A4:</span>
+      <button type="button" class="zoom-btn" [class.active]="sheetZoom === 70" (click)="setZoom(70)">70%</button>
+      <button type="button" class="zoom-btn" [class.active]="sheetZoom === 85" (click)="setZoom(85)">85%</button>
+      <button type="button" class="zoom-btn" [class.active]="sheetZoom === 100" (click)="setZoom(100)">100%</button>
+      <button type="button" class="zoom-btn" [class.active]="sheetZoom === 0" (click)="setZoom(0)"
+        title="Tự động co giãn theo chiều ngang">
+        Tự co giãn
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Split Layout -->
+  <div class="split-layout" [class.mode-split]="viewMode === 'split'" [class.mode-editor]="viewMode === 'editor'"
+    [class.mode-preview]="viewMode === 'preview'">
+    <!-- LEFT PANE: Editor & Controls -->
+    <div class="editor-pane no-print">
+      <div class="card-head">
+        <h3>Thông tin phòng & Hóa đơn</h3>
+        <span class="badge badge-info" *ngIf="selectedLease">
+          HĐ: {{ selectedLease.unit_name || selectedLease.id.slice(0, 8) }}
+        </span>
+      </div>
+
+      <!-- Source Auto-Population Card -->
+      <div class="source-selector-card">
+        <!-- 1. Quick Select Lease -->
+        <div class="form-group" *ngIf="leases.length > 0">
+          <label class="form-label font-bold text-info">🔗 Chọn Hợp đồng thuê (Tự động điền đầy đủ mọi mục):</label>
+          <select class="input-field highlight-select" [(ngModel)]="selectedLeaseId"
+            (ngModelChange)="onSelectLeaseById($event)">
+            <option value="">-- Chọn Hợp đồng thuê phòng --</option>
+            <option *ngFor="let l of leases" [value]="l.id">
+              {{ l.property_name || 'Cơ sở' }} - Phòng {{ l.unit_name || 'N/A' }} (Khách: {{ l.tenant_name || 'Khách
+              thuê' }}) · Giá: {{ l.monthly_rent | number }} ₫
+            </option>
+          </select>
+        </div>
+
+        <!-- 2. Or Select Property to populate Bank Account and Address -->
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">🏢 Cơ sở / Nhà trọ của bạn:</label>
+            <select class="input-field" [(ngModel)]="selectedPropertyId" (ngModelChange)="onPropertyChange()">
+              <option value="">-- Chọn Cơ sở --</option>
+              <option *ngFor="let p of properties" [value]="p.id">
+                {{ p.name }} ({{ p.address }})
+              </option>
+            </select>
+          </div>
+
+          <!-- 3. Or Select Tenant to populate Customer Info -->
+          <div class="form-group">
+            <label class="form-label">👤 Khách thuê:</label>
+            <select class="input-field" [(ngModel)]="selectedTenantId" (ngModelChange)="onTenantChange()">
+              <option value="">-- Chọn Khách thuê --</option>
+              <option *ngFor="let t of tenants" [value]="t.id">
+                {{ t.full_name }} ({{ t.phone || 'Chưa có SĐT' }})
+              </option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Period Picker & Advance Month -->
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Kỳ hóa đơn (Tháng / Năm):</label>
+          <div class="period-control">
+            <input type="number" class="input-field" min="1" max="12" [(ngModel)]="month" (change)="onPeriodChange()"
+              style="width: 70px" />
+            <span class="sep">/</span>
+            <input type="number" class="input-field" min="2020" max="2035" [(ngModel)]="year"
+              (change)="onPeriodChange()" style="width: 90px" />
+            <button type="button" class="btn btn-sm btn-secondary" (click)="advanceMonth(1)"
+              title="Lưu số hiện tại và chuyển sang tháng tiếp theo">
+              +1 Tháng
+            </button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ghi nhớ số phòng:</label>
+          <button type="button" class="btn btn-sm btn-success w-full" (click)="saveMeterReadings()">
+            ✓ Lưu chỉ số kỳ này
+          </button>
+        </div>
+      </div>
+
+      <!-- Address / Facility / Unit -->
+      <div class="form-group">
+        <label class="form-label">Địa chỉ / Cơ sở / Phòng:</label>
+        <input type="text" class="input-field" [(ngModel)]="address" (change)="onAddressChange()"
+          placeholder="VD: Nhà 123 Cầu Giấy - Phòng 302" />
+      </div>
+
+      <!-- Occupants in this Unit -->
+      <div class="form-group" *ngIf="occupants.length > 0">
+        <div
+          style="background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.25);border-radius:6px;padding:8px 10px;font-size:0.8rem">
+          <div style="display:flex;justify-content:space-between;color:#38bdf8;font-weight:600;margin-bottom:3px">
+            <span>👥 Người ở trong phòng ({{ occupants.length }} người):</span>
+            <span style="font-size:0.75rem;color:#94a3b8">Tự tính phí vệ sinh, xe</span>
+          </div>
+          <div style="color:#cbd5e1;font-size:0.75rem">
+            {{ getOccupantNames() }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Customer Name & Phone -->
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Tên khách hàng:</label>
+          <input type="text" class="input-field" [(ngModel)]="customerName" placeholder="VD: Nguyễn Văn A" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Số điện thoại khách:</label>
+          <input type="text" class="input-field" [(ngModel)]="customerPhone" placeholder="VD: 0912 345 678" />
+        </div>
+      </div>
+
+      <!-- Payment / Bank Account Information of Landlord -->
+      <div class="form-group">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem">
+          <label class="form-label" style="margin:0">Thông tin thanh toán của chủ nhà:</label>
+          <span style="font-size:0.72rem;color:#38bdf8" *ngIf="selectedProperty?.bank_name">
+            ✓ Đã đồng bộ từ {{ selectedProperty?.name }}
+          </span>
+        </div>
+        <textarea class="input-field" rows="3" [(ngModel)]="paymentInfo"
+          placeholder="Tên ngân hàng&#10;Số tài khoản: ...&#10;Tên chủ tài khoản: ..."></textarea>
+      </div>
+
+      <!-- Banking QR Code of Landlord -->
+      <div class="form-group">
+        <label class="form-label">Mã QR Chuyển khoản (Ngân hàng):</label>
+        <div class="bill-qr-control">
+          <div *ngIf="bankQrCode" class="bill-qr-preview-box">
+            <img [src]="bankQrCode" alt="QR Ngân hàng" class="bill-qr-thumb" />
+            <div class="bill-qr-actions">
+              <span class="badge badge-success">✓ Đã có ảnh QR</span>
+              <label class="btn btn-xs btn-secondary cursor-pointer">
+                Đổi ảnh
+                <input type="file" accept="image/*" (change)="onBillQrFileSelected($event)" style="display:none" />
+              </label>
+              <button type="button" class="btn btn-xs btn-ghost text-danger" (click)="removeBillQrCode()">Xóa</button>
+            </div>
+          </div>
+          <div *ngIf="!bankQrCode" class="bill-qr-upload-box">
+            <label class="btn btn-sm btn-secondary cursor-pointer">
+              📷 Tải ảnh mã QR Ngân hàng
+              <input type="file" accept="image/*" (change)="onBillQrFileSelected($event)" style="display:none" />
+            </label>
+            <span class="faint-hint">Tự động in vào hóa đơn bên cạnh thông tin chuyển khoản</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Items Section Header -->
+      <div class="items-head">
+        <div>
+          <h4>Bảng kê các khoản thu</h4>
+          <span class="faint-hint" *ngIf="selectedLease">
+            Tiền nhà tự động từ HĐ ({{ selectedLease.monthly_rent | number }} ₫/tháng). Bạn chỉ cần nhập chỉ số mới.
+          </span>
+        </div>
+        <button class="btn btn-sm btn-ghost" (click)="addItem()">+ Thêm khoản thu</button>
+      </div>
+
+      <!-- Tariffs & Banking Info Banner -->
+      <div *ngIf="selectedProperty || selectedLease"
+        style="background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.25);border-radius:6px;padding:8px 10px;margin-bottom:12px;font-size:0.75rem;color:#cbd5e1">
+        <div style="font-weight:600;color:#38bdf8;margin-bottom:3px">
+          ⚡ Biểu phí từ {{ selectedProperty?.name || selectedLease?.property_name || 'Cơ sở' }}:
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:4px">
+          <span>Điện: <strong>{{ ((selectedProperty?.electricity_rate ?? selectedLease?.electricity_rate) || 3500) |
+              number }}</strong> ₫/số</span>
+          <span>• Nước: <strong>{{ ((selectedProperty?.water_rate ?? selectedLease?.water_rate) || 25000) | number
+              }}</strong> ₫/khối</span>
+          <span>• Mạng: <strong>{{ ((selectedProperty?.internet_rate ?? selectedLease?.internet_rate) || 100000) |
+              number }}</strong> ₫/phòng</span>
+          <span>• Vệ sinh: <strong>{{ ((selectedProperty?.cleaning_rate ?? selectedLease?.cleaning_rate) || 50000) |
+              number }}</strong> ₫/người</span>
+          <span>• Giữ xe: <strong>{{ ((selectedProperty?.parking_rate ?? selectedLease?.parking_rate) || 100000) |
+              number }}</strong> ₫/xe</span>
+        </div>
+        <div
+          *ngIf="(selectedProperty?.bank_name || selectedLease?.bank_name) || (selectedProperty?.bank_account_number || selectedLease?.bank_account_number)"
+          style="color:#f59e0b;font-size:0.75rem;border-top:1px dashed rgba(255,255,255,0.1);padding-top:4px">
+          🏦 Ngân hàng: <strong>{{ selectedProperty?.bank_name || selectedLease?.bank_name || '—' }}</strong> |
+          STK: <strong>{{ selectedProperty?.bank_account_number || selectedLease?.bank_account_number || '—' }}</strong>
+          |
+          CTK: <strong>{{ selectedProperty?.bank_account_name || selectedLease?.bank_account_name || '—' }}</strong>
+        </div>
+      </div>
+
+      <!-- Items Editor Cards -->
+      <div class="items-editor">
+        <div *ngFor="let item of items; let idx = index" class="item-card" [class.rent-card]="isRentItem(item)"
+          [class.meter-card]="item.isMeter">
+          <div class="item-card-row1">
+            <input type="text" class="input-field item-name-input" [(ngModel)]="item.name" placeholder="Tên khoản thu"
+              [readonly]="isRentItem(item) && selectedLease" />
+            <div class="item-card-row1-badges">
+              <span *ngIf="isRentItem(item) && selectedLease" class="badge badge-success">
+                Rent: {{ selectedLease.monthly_rent | number }} ₫ (Tự động)
+              </span>
+              <span *ngIf="item.isMeter" class="badge badge-meter">
+                Tự trừ Mới - Cũ
+              </span>
+              <label *ngIf="!isRentItem(item)" class="checkbox-label">
+                <input type="checkbox" [(ngModel)]="item.isMeter" (change)="onMeterToggle(item)" />
+                Chỉ số
+              </label>
+              <button *ngIf="!isRentItem(item)" class="btn-icon danger" (click)="removeItem(idx)" title="Xóa dòng">
+                ✕
+              </button>
+            </div>
+          </div>
+
+          <!-- Meter Row (Electricity & Water) -->
+          <div class="item-card-row2 meter-grid" *ngIf="item.isMeter">
+            <div class="field-col">
+              <label>
+                Chỉ số cũ (Đầu)
+                <span *ngIf="hasAutoPrevious(item)" class="text-success small-note">✓ Lưu từ trước</span>
+              </label>
+              <input type="number" class="input-field sm" [(ngModel)]="item.meterStart" (input)="recalculateItem(item)"
+                placeholder="Số cũ" />
+            </div>
+            <div class="field-col">
+              <label class="label-highlight">Chỉ số mới (Cuối) *</label>
+              <input type="number" class="input-field sm new-meter-input" [(ngModel)]="item.meterEnd"
+                (input)="recalculateItem(item)" placeholder="Nhập số mới" />
+            </div>
+            <div class="field-col">
+              <label>Tiêu thụ (Mới - Cũ)</label>
+              <input type="number" class="input-field sm readonly auto-calc" [ngModel]="item.quantity" readonly />
+            </div>
+            <div class="field-col">
+              <label>Đơn vị</label>
+              <input type="text" class="input-field sm" [(ngModel)]="item.unit" placeholder="Số / Khối" />
+            </div>
+            <div class="field-col">
+              <label>Đơn giá (₫)</label>
+              <input type="number" class="input-field sm" [(ngModel)]="item.unitPrice"
+                (input)="recalculateItem(item)" />
+            </div>
+            <div class="field-col total-col">
+              <label>Thành tiền (₫)</label>
+              <span class="total-val">{{ item.total | number }}</span>
+            </div>
+          </div>
+
+          <!-- Standard Row (Rent, Internet, Hygiene, Laundry) -->
+          <div class="item-card-row2" *ngIf="!item.isMeter">
+            <div class="field-col">
+              <label>Số lượng</label>
+              <input type="number" class="input-field sm" [(ngModel)]="item.quantity" (input)="recalculateItem(item)" />
+            </div>
+            <div class="field-col">
+              <label>Đơn vị</label>
+              <input type="text" class="input-field sm" [(ngModel)]="item.unit" placeholder="Tháng / Phòng / Người" />
+            </div>
+            <div class="field-col">
+              <label>
+                Đơn giá (₫)
+                <span *ngIf="isRentItem(item) && selectedLease" class="text-success small-note"> (Tự động từ HĐ)</span>
+              </label>
+              <input type="number" class="input-field sm" [class.readonly]="isRentItem(item) && selectedLease"
+                [readonly]="isRentItem(item) && selectedLease" [(ngModel)]="item.unitPrice"
+                (input)="recalculateItem(item)"
+                title="Tiền nhà lấy tự động từ giá thuê trong Hợp đồng (Rent / month)" />
+            </div>
+            <div class="field-col total-col">
+              <label>Thành tiền (₫)</label>
+              <span class="total-val">{{ item.total | number }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payment Summary Box -->
+      <div class="summary-box">
+        <div class="summary-row">
+          <span>Tổng cộng thanh toán:</span>
+          <strong class="grand-total">{{ grandTotal | number }} ₫</strong>
+        </div>
+        <div class="summary-words">
+          <em>Bằng chữ: {{ amountInWords }}</em>
+        </div>
+      </div>
+
+      <!-- History of Meter Readings for this room -->
+      <div class="history-section" *ngIf="unitMeterHistory.length > 0">
+        <div class="history-head">
+          <h5>Lịch sử ghi số điện/nước đã lưu của phòng này</h5>
+        </div>
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Kỳ</th>
+              <th>Điện (Cũ → Mới)</th>
+              <th>Số điện</th>
+              <th>Nước (Cũ → Mới)</th>
+              <th>Số nước</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let h of unitMeterHistory" class="history-row">
+              <td><strong>T{{ h.month }}/{{ h.year }}</strong></td>
+              <td>{{ h.electricityStart }} → {{ h.electricityEnd }}</td>
+              <td class="text-info">{{ h.electricityEnd - h.electricityStart }} số</td>
+              <td>{{ h.waterStart }} → {{ h.waterEnd }}</td>
+              <td class="text-info">{{ h.waterEnd - h.waterStart }} m³</td>
+              <td>
+                <button class="btn-link" (click)="loadHistoryRecord(h)" title="Xem lại kỳ này">Tải lại</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- RIGHT PANE: Printable A4 Sheet Preview -->
+    <div class="preview-pane">
+      <div class="preview-toolbar no-print">
+        <span>Bản in A4 tiêu chuẩn (Khớp mẫu 100%, không có tiền thang máy)</span>
+        <div class="toolbar-actions">
+          <button class="btn btn-sm btn-success" (click)="saveMeterReadings()">Lưu chỉ số</button>
+          <button class="btn btn-sm btn-secondary" (click)="printBill()">In / Lưu PDF</button>
+          <button class="btn btn-sm btn-primary" (click)="downloadPdf()" [disabled]="isExporting">Tải file PDF</button>
+        </div>
+      </div>
+
+      <!-- Responsive Outer Scroll & Scale Wrapper -->
+      <div class="sheet-outer-scroll" #previewContainer>
+        <div class="sheet-scale-wrapper" [style.transform]="getScaleTransform()">
+          <div #billSheet id="rental-invoice-print" class="rental-sheet">
+            <div class="sheet-header">
+              <h2 class="sheet-title">HÓA ĐƠN TIỀN NHÀ</h2>
+              <div class="sheet-subtitle">Thời gian: Tháng {{ month }} / năm {{ year }}</div>
+            </div>
+
+            <!-- Info Table: Row 1 = Address & Customer, Row 2 = Full-width Payment & QR code -->
+            <table class="sheet-meta-table">
+              <tbody>
+                <tr>
+                  <td class="meta-col address-col">
+                    <div class="meta-label">Địa chỉ/Cơ sở:</div>
+                    <div class="meta-value">{{ address || '......................................................' }}
+                    </div>
+                  </td>
+                  <td class="meta-col customer-col">
+                    <div class="meta-label">Tên khách hàng:</div>
+                    <div class="meta-value">
+                      <strong>{{ customerName || '......................................' }}</strong>
+                      <div *ngIf="customerPhone" class="meta-sub">SĐT: {{ customerPhone }}</div>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="2" class="meta-col payment-row-col">
+                    <div class="meta-label">Thông tin thanh toán:</div>
+                    <div class="payment-full-flex">
+                      <div class="payment-details-text pre-wrap">{{ paymentInfo ||
+                        '......................................................' }}</div>
+                      <div *ngIf="bankQrCode" class="payment-qr-block">
+                        <img [src]="bankQrCode" alt="Mã QR thanh toán" class="payment-qr-image" />
+                        <span class="payment-qr-hint">Quét mã QR thanh toán</span>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- Main Fee Calculation Table -->
+            <table class="sheet-data-table">
+              <thead>
+                <tr>
+                  <th rowspan="2" class="col-name">Khoản thu</th>
+                  <th colspan="2" class="col-meter">Chỉ số điện nước</th>
+                  <th rowspan="2" class="col-qty">Số lượng</th>
+                  <th rowspan="2" class="col-unit">Đơn vị</th>
+                  <th rowspan="2" class="col-price">Đơn giá</th>
+                  <th rowspan="2" class="col-total">Thành tiền</th>
+                </tr>
+                <tr>
+                  <th class="col-sub">Chỉ số đầu</th>
+                  <th class="col-sub">Chỉ số cuối</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let it of items">
+                  <td class="td-name">{{ it.name }}</td>
+                  <td class="td-center">{{ it.isMeter && it.meterStart !== undefined ? (it.meterStart | number) : '' }}
+                  </td>
+                  <td class="td-center">{{ it.isMeter && it.meterEnd !== undefined ? (it.meterEnd | number) : '' }}</td>
+                  <td class="td-center">{{ it.quantity | number }}</td>
+                  <td class="td-center">{{ it.unit }}</td>
+                  <td class="td-right">{{ it.unitPrice | number }}</td>
+                  <td class="td-right font-semibold">{{ it.total | number }}</td>
+                </tr>
+
+                <!-- Fill blank empty rows if items < 6 to match printed form height -->
+                <tr *ngFor="let blank of blankRows">
+                  <td class="td-name">&nbsp;</td>
+                  <td>&nbsp;</td>
+                  <td>&nbsp;</td>
+                  <td>&nbsp;</td>
+                  <td>&nbsp;</td>
+                  <td>&nbsp;</td>
+                  <td>&nbsp;</td>
+                </tr>
+
+                <!-- Total Payment Row -->
+                <tr class="tr-total">
+                  <td class="td-name font-bold">Tổng tiền thanh toán</td>
+                  <td colspan="5" class="td-total-words">
+                    <span class="total-words-text">Bằng chữ: <em>{{ amountInWords }}</em></span>
+                  </td>
+                  <td class="td-right td-grand-total">{{ grandTotal | number }}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- Signature Footer Block -->
+            <div class="sheet-footer">
+              <div class="footer-date">
+                <em>Ngày ..... tháng ..... năm {{ year }}</em>
+              </div>
+              <div class="signature-grid">
+                <div class="sig-block">
+                  <div class="sig-title">Người lập hóa đơn</div>
+                  <div class="sig-note">(Ký, ghi rõ họ tên)</div>
+                  <div class="sig-space"></div>
+                </div>
+                <div class="sig-block">
+                  <div class="sig-title">Khách thuê / Người nộp tiền</div>
+                  <div class="sig-note">(Ký, ghi rõ họ tên)</div>
+                  <div class="sig-space"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

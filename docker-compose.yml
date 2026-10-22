@@ -1,0 +1,84 @@
+x-service-env: &service-env
+  RABBITMQ_URL: amqp://rental:rental@rabbitmq:5672
+  JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+
+x-service-deps: &service-deps
+  postgres:
+    condition: service_healthy
+  rabbitmq:
+    condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: rental
+      POSTGRES_PASSWORD: rental
+    ports: ["5432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres-init.sh:/docker-entrypoint-initdb.d/init.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rental"]
+      interval: 5s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: rental
+      RABBITMQ_DEFAULT_PASS: rental
+    ports: ["5672:5672", "15672:15672"]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      retries: 20
+
+  auth-service:
+    build: { context: ., dockerfile: docker/service.Dockerfile, args: { SERVICE: auth-service } }
+    environment:
+      <<: *service-env
+      PORT: "4001"
+      DATABASE_URL: postgres://rental:rental@postgres:5432/auth_db
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@rental.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin12345}
+    depends_on: *service-deps
+
+  property-service:
+    build: { context: ., dockerfile: docker/service.Dockerfile, args: { SERVICE: property-service } }
+    environment:
+      <<: *service-env
+      PORT: "4002"
+      DATABASE_URL: postgres://rental:rental@postgres:5432/property_db
+    depends_on: *service-deps
+
+  accounting-service:
+    build: { context: ., dockerfile: docker/service.Dockerfile, args: { SERVICE: accounting-service } }
+    environment:
+      <<: *service-env
+      PORT: "4003"
+      DATABASE_URL: postgres://rental:rental@postgres:5432/accounting_db
+    depends_on: *service-deps
+
+  commerce-service:
+    build: { context: ., dockerfile: docker/service.Dockerfile, args: { SERVICE: commerce-service } }
+    environment:
+      <<: *service-env
+      PORT: "4004"
+      DATABASE_URL: postgres://rental:rental@postgres:5432/commerce_db
+    depends_on: *service-deps
+
+  api-gateway:
+    build: { context: ., dockerfile: docker/service.Dockerfile, args: { SERVICE: api-gateway } }
+    environment:
+      PORT: "8080"
+      AUTH_SERVICE_URL: http://auth-service:4001
+      PROPERTY_SERVICE_URL: http://property-service:4002
+      ACCOUNTING_SERVICE_URL: http://accounting-service:4003
+      COMMERCE_SERVICE_URL: http://commerce-service:4004
+    ports: ["8080:8080"]
+    depends_on: [auth-service, property-service, accounting-service, commerce-service]
+
+volumes:
+  pgdata:

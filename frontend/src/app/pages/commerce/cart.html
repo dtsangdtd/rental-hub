@@ -1,0 +1,130 @@
+<div class="page">
+  <a routerLink="/shop" class="btn btn-ghost btn-sm mb">
+    <app-icon name="back" [size]="15" /> Continue shopping
+  </a>
+
+  <header class="page-header">
+    <div>
+      <div class="eyebrow">Commerce</div>
+      <h1>Shopping Cart</h1>
+      <p class="subtitle">{{ cart.count() }} item(s) selected</p>
+    </div>
+    @if (cart.lines().length > 0) {
+      <button class="btn btn-ghost btn-sm text-danger" (click)="cart.clear()">
+        <app-icon name="trash" [size]="15" /> Empty cart
+      </button>
+    }
+  </header>
+
+  @if (cart.lines().length === 0) {
+    <div class="card empty">
+      <div class="empty-icon"><app-icon name="cart" [size]="28" /></div>
+      <h3>Your cart is empty</h3>
+      <p>Explore amenities, furniture and repair services for your home.</p>
+      <a routerLink="/shop" class="btn btn-primary mt"><app-icon name="bag" /> Browse Shop</a>
+    </div>
+  } @else {
+    @if (cart.mixedCurrency()) {
+      <div class="alert danger mb">
+        <app-icon name="alert" [size]="16" />
+        <span>
+          Orders cannot combine different currencies ({{ cart.currencies().join(', ') }}).
+          Please remove items to keep a single currency before placing your order.
+        </span>
+      </div>
+    }
+
+    <div class="grid cart-layout">
+      <!-- Cart items list -->
+      <div class="card flush">
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th class="right">Price</th>
+                <th class="center">Quantity</th>
+                <th class="right">Subtotal</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (line of cart.lines(); track line.product.id) {
+                <tr>
+                  <td>
+                    <div class="primary-cell">{{ line.product.name }}</div>
+                    <div class="faint small">SKU: {{ line.product.sku }} · {{ line.product.category }}</div>
+                  </td>
+                  <td class="right nowrap">{{ line.product.price | money: line.product.currency }}</td>
+                  <td class="center">
+                    <div class="qty-pill">
+                      <button class="btn btn-ghost btn-icon btn-sm" (click)="cart.setQuantity(line.product.id, line.quantity - 1)">
+                        <app-icon name="minus" [size]="13" />
+                      </button>
+                      <span class="qty-num">{{ line.quantity }}</span>
+                      <button class="btn btn-ghost btn-icon btn-sm" [disabled]="line.quantity >= line.product.stock" (click)="cart.setQuantity(line.product.id, line.quantity + 1)">
+                        <app-icon name="plus" [size]="13" />
+                      </button>
+                    </div>
+                  </td>
+                  <td class="right primary-cell nowrap">
+                    {{ (line.product.price * line.quantity) | money: line.product.currency }}
+                  </td>
+                  <td class="right">
+                    <button class="btn btn-ghost btn-icon btn-sm text-danger" title="Remove" (click)="cart.remove(line.product.id)">
+                      <app-icon name="x" [size]="15" />
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Checkout summary box -->
+      <div class="stack">
+        <div class="card summary-card">
+          <h3>Order Summary</h3>
+          <div class="divider"></div>
+
+          <div class="row summary-row">
+            <span class="muted">Items ({{ cart.count() }})</span>
+            <span class="spacer"></span>
+            <span>{{ cart.total() | money: mainCurrency() }}</span>
+          </div>
+          <div class="row summary-row">
+            <span class="muted">Estimated Delivery</span>
+            <span class="spacer"></span>
+            <span class="text-success">Free</span>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="row summary-row total">
+            <span>Total Due</span>
+            <span class="spacer"></span>
+            <span class="total-val">{{ cart.total() | money: mainCurrency() }}</span>
+          </div>
+
+          <div class="field mt">
+            <label for="order-note">Delivery / Special notes (optional)</label>
+            <textarea class="input" id="order-note" placeholder="Room number, preferred delivery hours, or contact notes..." [(ngModel)]="note" rows="3"></textarea>
+          </div>
+
+          <div class="alert info mt">
+            <app-icon name="sparkle" [size]="16" />
+            <span class="small">
+              Placing this order automatically creates a matching invoice in Accounting.
+            </span>
+          </div>
+
+          <button class="btn btn-primary btn-block mt checkout-btn" id="checkout-submit" [disabled]="submitting() || cart.mixedCurrency()" (click)="checkout()">
+            @if (submitting()) { <span class="spinner"></span> }
+            Place Order &amp; Generate Invoice
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

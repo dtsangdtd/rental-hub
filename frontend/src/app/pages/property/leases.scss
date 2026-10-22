@@ -1,0 +1,88 @@
+.skeleton-wrap {
+  padding: 20px;
+}
+
+.tenant-name {
+  font-weight: 600;
+}
+
+.occupant-badge-wrap {
+  font-size: 0.75rem;
+  margin-top: 2px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.occupant-chip {
+  cursor: pointer;
+  padding: 1px 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #94a3b8;
+
+  &.multi {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+  }
+}
+
+.actions-group {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.form-actions {
+  justify-content: flex-end;
+}
+
+.occupants-modal-body {
+  gap: 1rem;
+}
+
+.p-sm {
+  padding: 0.75rem;
+}
+
+.card-subtitle {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  color: #f8fafc;
+}
+
+.card-subtitle-add {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  color: #f8fafc;
+}
+
+.empty-occupants {
+  padding: 1rem;
+  text-align: center;
+}
+
+.table-compact {
+  font-size: 0.82rem;
+}
+
+.primary-tag {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  font-size: 0.65rem;
+  margin-left: 4px;
+}
+
+.rel-tag {
+  background: #1e293b;
+  color: #cbd5e1;
+}
+
+.btn-delete {
+  padding: 2px 6px;
+  font-size: 0.75rem;
+}
+
+.form-actions-top {
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}

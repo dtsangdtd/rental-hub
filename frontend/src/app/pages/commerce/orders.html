@@ -1,0 +1,70 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <div class="eyebrow">Commerce</div>
+      <h1>{{ isStaff() ? 'Customer Orders' : 'My Orders' }}</h1>
+      <p class="subtitle">{{ items().length }} total orders placed</p>
+    </div>
+    <a routerLink="/shop" class="btn btn-primary">
+      <app-icon name="bag" /> Shop essentials
+    </a>
+  </header>
+
+  <div class="card flush">
+    <div class="row toolbar">
+      <div class="chips">
+        @for (f of filters; track f) {
+          <button class="chip" [class.active]="filter() === f" (click)="filter.set(f)">
+            {{ f === 'all' ? 'All orders' : f }}
+          </button>
+        }
+      </div>
+    </div>
+
+    @if (loading()) {
+      <div class="skeleton-wrap stack">
+        @for (i of [1, 2, 3, 4]; track i) { <div class="skeleton" style="height:40px"></div> }
+      </div>
+    } @else if (filtered().length === 0) {
+      <div class="empty">
+        <div class="empty-icon"><app-icon name="package" [size]="28" /></div>
+        <h3>No orders found</h3>
+        <p>Orders from the home essentials store will appear here.</p>
+        <a routerLink="/shop" class="btn btn-primary mt"><app-icon name="bag" /> Browse Shop</a>
+      </div>
+    } @else {
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Placed Date</th>
+              <th>Notes</th>
+              <th class="right">Total</th>
+              <th class="right">Status</th>
+              <th class="right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (o of filtered(); track o.id) {
+              <tr class="clickable" [routerLink]="['/orders', o.id]" [id]="'order-' + o.id">
+                <td class="mono primary-cell">#{{ o.id.slice(0, 8) }}</td>
+                <td class="muted">{{ o.created_at | date: 'medium' }}</td>
+                <td class="small faint">{{ o.note || '—' }}</td>
+                <td class="right nowrap font-medium">{{ o.total | money: o.currency }}</td>
+                <td class="right"><app-status [value]="o.status" /></td>
+                <td class="right">
+                  @if (o.status === 'pending') {
+                    <button class="btn btn-danger btn-sm" (click)="cancel(o, $event)">
+                      Cancel
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>

@@ -1,0 +1,86 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <div class="eyebrow">Administration</div>
+      <h1>System Users</h1>
+      <p class="subtitle">Manage staff and user accounts across all roles</p>
+    </div>
+    <button class="btn btn-primary" id="user-new" (click)="openCreate()">
+      <app-icon name="plus" /> New user
+    </button>
+  </header>
+
+  <div class="card flush">
+    @if (loading()) {
+      <div class="skeleton-wrap stack">
+        @for (i of [1, 2, 3, 4]; track i) { <div class="skeleton" style="height:40px"></div> }
+      </div>
+    } @else if (users().length === 0) {
+      <div class="empty">
+        <div class="empty-icon"><app-icon name="users" [size]="28" /></div>
+        <h3>No users found</h3>
+      </div>
+    } @else {
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (u of users(); track u.id) {
+              <tr>
+                <td>
+                  <div class="row">
+                    <div class="avatar">{{ u.fullName.charAt(0).toUpperCase() }}</div>
+                    <span class="primary-cell">{{ u.fullName }}</span>
+                  </div>
+                </td>
+                <td class="muted">{{ u.email }}</td>
+                <td><app-status [value]="u.role" /></td>
+                <td class="muted small">{{ u.createdAt | date: 'medium' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>
+
+@if (showCreate()) {
+  <app-modal title="Create user account" subtitle="Provision an administrator, landlord, accountant, or tenant." (closed)="showCreate.set(false)">
+    <form class="form-grid" (ngSubmit)="create()" #f="ngForm">
+      <div class="field full">
+        <label for="uf-name">Full name</label>
+        <input class="input" id="uf-name" name="fullName" required maxlength="200" [(ngModel)]="form.fullName" placeholder="Sarah Connor" />
+      </div>
+      <div class="field full">
+        <label for="uf-email">Email</label>
+        <input class="input" id="uf-email" name="email" type="email" required email [(ngModel)]="form.email" placeholder="sarah@rental.local" />
+      </div>
+      <div class="field full">
+        <label for="uf-password">Temporary password</label>
+        <input class="input" id="uf-password" name="password" type="password" required minlength="8" [(ngModel)]="form.password" placeholder="At least 8 characters" />
+      </div>
+      <div class="field full">
+        <label for="uf-role">Role</label>
+        <select class="input" id="uf-role" name="role" required [(ngModel)]="form.role">
+          @for (r of roles; track r) {
+            <option [value]="r">{{ r | label }}</option>
+          }
+        </select>
+      </div>
+      <div class="row full form-actions">
+        <button type="button" class="btn btn-ghost" (click)="showCreate.set(false)">Cancel</button>
+        <button class="btn btn-primary" id="uf-submit" [disabled]="saving() || f.invalid">
+          @if (saving()) { <span class="spinner"></span> } Create User
+        </button>
+      </div>
+    </form>
+  </app-modal>
+}

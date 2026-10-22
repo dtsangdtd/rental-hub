@@ -1,0 +1,53 @@
+.cart-layout {
+  grid-template-columns: minmax(0, 1.8fr) minmax(320px, 1fr);
+  align-items: start;
+
+  @media (max-width: 950px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.qty-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 2px;
+}
+
+.qty-num {
+  min-width: 24px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.center {
+  text-align: center;
+}
+
+.summary-card {
+  position: sticky;
+  top: 80px;
+}
+
+.summary-row {
+  font-size: 14px;
+  margin-bottom: 6px;
+
+  &.total {
+    font-size: 18px;
+    font-weight: 700;
+  }
+}
+
+.total-val {
+  font-family: var(--font-display);
+  color: var(--primary);
+}
+
+.checkout-btn {
+  height: 44px;
+}

@@ -1,0 +1,55 @@
+<div class="layout" [class.open]="menuOpen()">
+  <aside class="sidebar">
+    <a routerLink="/dashboard" class="brand">
+      <span class="logo"><app-icon name="home" [size]="18" [stroke]="2.4" /></span>
+      <span class="brand-text">Rental<b>Hub</b></span>
+    </a>
+
+    <nav>
+      @for (section of nav(); track section.title) {
+        <div class="section">
+          <div class="section-title">{{ section.title }}</div>
+          @for (item of section.items; track item.path) {
+            <a class="nav-link" [id]="'nav-' + item.label.toLowerCase().replace(' ', '-')" [routerLink]="item.path" routerLinkActive="active">
+              <app-icon [name]="item.icon" [size]="17" />
+              <span>{{ item.label }}</span>
+              @if (item.path === '/shop' && cart.count() > 0) {
+                <span class="count">{{ cart.count() }}</span>
+              }
+            </a>
+          }
+        </div>
+      }
+    </nav>
+
+    <div class="me">
+      <div class="avatar">{{ initials() }}</div>
+      <div class="who">
+        <div class="name">{{ auth.user()?.fullName }}</div>
+        <div class="email">{{ auth.user()?.email }}</div>
+      </div>
+      <button class="btn btn-ghost btn-icon" id="logout-btn" title="Sign out" (click)="auth.logout()">
+        <app-icon name="logout" [size]="17" />
+      </button>
+    </div>
+  </aside>
+
+  <div class="scrim" (click)="menuOpen.set(false)"></div>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="btn btn-ghost btn-icon menu-btn" id="menu-toggle" (click)="menuOpen.set(!menuOpen())" aria-label="Menu">
+        <app-icon name="menu" />
+      </button>
+      <div class="spacer"></div>
+      @if (auth.role(); as role) { <app-status [value]="role" /> }
+      <a routerLink="/cart" class="btn btn-icon cart-btn" id="topbar-cart" aria-label="Cart">
+        <app-icon name="cart" [size]="17" />
+        @if (cart.count() > 0) { <span class="cart-count">{{ cart.count() }}</span> }
+      </a>
+    </header>
+    <main>
+      <router-outlet />
+    </main>
+  </div>
+</div>

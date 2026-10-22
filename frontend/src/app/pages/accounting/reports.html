@@ -1,0 +1,160 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <div class="eyebrow">Accounting</div>
+      <h1>Financial Reports</h1>
+      <p class="subtitle">Cash flow statement, categorized expenses &amp; outstanding balances</p>
+    </div>
+    <form class="row filter-bar" (ngSubmit)="applyFilter()">
+      <div class="row">
+        <label class="faint small" for="rep-from">From</label>
+        <input class="input" id="rep-from" type="date" [(ngModel)]="from" name="from" />
+      </div>
+      <div class="row">
+        <label class="faint small" for="rep-to">To</label>
+        <input class="input" id="rep-to" type="date" [(ngModel)]="to" name="to" />
+      </div>
+      <button class="btn btn-primary btn-sm" type="submit" [disabled]="loading()">
+        @if (loading()) { <span class="spinner"></span> } Apply
+      </button>
+    </form>
+  </header>
+
+  @if (loading() && !report()) {
+    <div class="grid grid-3 mb">
+      @for (i of [1, 2, 3]; track i) { <div class="card skeleton skeleton-stat"></div> }
+    </div>
+  } @else if (report(); as rep) {
+    <!-- Currency selector if multiple currencies exist -->
+    @if (currencies().length > 1) {
+      <div class="chips mb">
+        @for (c of currencies(); track c) {
+          <button class="chip" [class.active]="activeCurrency() === c" (click)="activeCurrency.set(c)">
+            {{ c }}
+          </button>
+        }
+      </div>
+    }
+
+    <!-- Top summary stats for active currency -->
+    <div class="grid grid-3 mb stagger">
+      <div class="card stat">
+        <div class="orb"></div>
+        <div class="icon-wrap"><app-icon name="money" /></div>
+        <div class="label">Total Income</div>
+        <div class="value text-success">{{ currentTotals().income | money: activeCurrency() }}</div>
+        <div class="hint">Actual payments collected</div>
+      </div>
+      <div class="card stat warm">
+        <div class="orb"></div>
+        <div class="icon-wrap"><app-icon name="wallet" /></div>
+        <div class="label">Total Expenses</div>
+        <div class="value text-danger">{{ currentTotals().expenses | money: activeCurrency() }}</div>
+        <div class="hint">Operating costs recorded</div>
+      </div>
+      <div class="card stat accent">
+        <div class="orb"></div>
+        <div class="icon-wrap"><app-icon name="chart" /></div>
+        <div class="label">Net Profit / Loss</div>
+        <div class="value" [class.text-danger]="currentTotals().profit < 0" [class.text-success]="currentTotals().profit >= 0">
+          {{ currentTotals().profit | money: activeCurrency() }}
+        </div>
+        <div class="hint">Income minus expenses</div>
+      </div>
+    </div>
+
+    <div class="grid grid-2 mb">
+      <!-- Income Breakdown -->
+      <div class="card">
+        <div class="card-header">
+          <h3>Income by Type</h3>
+          <span class="faint small">{{ from }} → {{ to }}</span>
+        </div>
+        @if (currentIncomeByKind().length === 0) {
+          <div class="empty empty-box">
+            <p>No income received in this timeframe.</p>
+          </div>
+        } @else {
+          <div class="breakdown">
+            @for (item of currentIncomeByKind(); track item.kind) {
+              <div class="breakdown-item">
+                <div class="row">
+                  <span class="primary-cell">{{ item.kind | label }}</span>
+                  <span class="spacer"></span>
+                  <b>{{ item.total | money: item.currency }}</b>
+                </div>
+                <div class="progress primary progress-gap">
+                  <span [style.width.%]="incomePct(item.total)"></span>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- Expenses Breakdown -->
+      <div class="card">
+        <div class="card-header">
+          <h3>Expenses by Category</h3>
+          <span class="faint small">{{ from }} → {{ to }}</span>
+        </div>
+        @if (currentExpensesByCategory().length === 0) {
+          <div class="empty empty-box">
+            <p>No expenses recorded in this timeframe.</p>
+          </div>
+        } @else {
+          <div class="breakdown">
+            @for (item of currentExpensesByCategory(); track item.category) {
+              <div class="breakdown-item">
+                <div class="row">
+                  <span class="primary-cell">{{ item.category | label }}</span>
+                  <span class="spacer"></span>
+                  <b class="text-danger">{{ item.total | money: item.currency }}</b>
+                </div>
+                <div class="progress warm progress-gap">
+                  <span [style.width.%]="expensePct(item.total)"></span>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Outstanding Invoices -->
+    <div class="card flush">
+      <div class="card-header outstanding-header">
+        <div>
+          <h3>Outstanding Receivables</h3>
+          <p class="faint small">Unpaid or partially paid invoices across all time</p>
+        </div>
+      </div>
+      @if (rep.outstanding.length === 0) {
+        <div class="empty empty-box-lg">
+          <p>🎉 All invoices have been collected in full!</p>
+        </div>
+      } @else {
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Currency</th>
+                <th class="right">Unpaid Invoices Count</th>
+                <th class="right">Total Pending Balance</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (o of rep.outstanding; track o.currency) {
+                <tr>
+                  <td class="primary-cell mono">{{ o.currency }}</td>
+                  <td class="right muted">{{ o.count }}</td>
+                  <td class="right primary-cell text-warning">{{ o.total | money: o.currency }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  }
+</div>

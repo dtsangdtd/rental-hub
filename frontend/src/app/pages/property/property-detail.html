@@ -1,0 +1,188 @@
+<div class="page">
+  <a routerLink="/properties" class="btn btn-ghost btn-sm mb"><app-icon name="back" [size]="15" /> Properties</a>
+
+  @if (property(); as p) {
+    <header class="page-header">
+      <div>
+        <div class="eyebrow">Property</div>
+        <h1>{{ p.name }}</h1>
+        <p class="subtitle">{{ p.address }}</p>
+      </div>
+      <div class="row">
+        @if (canManage()) {
+          <button class="btn btn-secondary" (click)="openTariffModal()"><app-icon name="receipt" [size]="16" /> Biểu phí dịch vụ</button>
+          <button class="btn btn-primary" id="unit-new" (click)="openUnit(null)"><app-icon name="plus" /> Add unit</button>
+        }
+      </div>
+    </header>
+
+    <!-- Utility Tariffs Card (Master Data) -->
+    <div class="card mb tariff-card">
+      <div class="tariff-header">
+        <span class="tariff-title">⚡ Biểu phí dịch vụ của tòa nhà (Master Data)</span>
+        @if (canManage()) {
+          <button class="btn btn-secondary btn-sm" (click)="openTariffModal()">Sửa biểu phí</button>
+        }
+      </div>
+      <div class="tariff-grid">
+        <div>⚡ Điện: <strong>{{ (p.electricity_rate || 3500) | number }}</strong> ₫/số</div>
+        <div>💧 Nước: <strong>{{ (p.water_rate || 25000) | number }}</strong> ₫/khối</div>
+        <div>📶 Mạng: <strong>{{ (p.internet_rate || 100000) | number }}</strong> ₫/phòng</div>
+        <div>🧹 Vệ sinh: <strong>{{ (p.cleaning_rate || 50000) | number }}</strong> ₫/người</div>
+        <div>🛵 Giữ xe: <strong>{{ (p.parking_rate || 100000) | number }}</strong> ₫/xe</div>
+      </div>
+    </div>
+
+    <!-- Banking Payment Info Card -->
+    <div class="card mb bank-card">
+      <div class="bank-header">
+        <span class="bank-title">🏦 Tài khoản ngân hàng nhận thanh toán (Tự động điền hóa đơn)</span>
+        @if (canManage()) {
+          <button class="btn btn-secondary btn-sm" (click)="openTariffModal()">Sửa thông tin</button>
+        }
+      </div>
+      <div class="bank-body">
+        <div class="bank-grid">
+          <div>Ngân hàng: <strong>{{ p.bank_name || '—' }}</strong></div>
+          <div>Số tài khoản: <strong>{{ p.bank_account_number || '—' }}</strong></div>
+          <div>Chủ tài khoản: <strong>{{ p.bank_account_name || '—' }}</strong></div>
+        </div>
+        @if (p.bank_qr_code) {
+          <div class="bank-qr-preview">
+            <img [src]="p.bank_qr_code" alt="Mã QR thanh toán" class="qr-img" />
+            <span class="faint small">Mã QR thanh toán</span>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="grid grid-4 stagger mb">
+      <div class="card stat"><div class="label">Units</div><div class="value">{{ p.units.length }}</div></div>
+      <div class="card stat accent"><div class="label">Occupied</div><div class="value text-success">{{ count('occupied') }}</div></div>
+      <div class="card stat"><div class="label">Vacant</div><div class="value">{{ count('vacant') }}</div></div>
+      <div class="card stat warm"><div class="label">Maintenance</div><div class="value text-warning">{{ count('maintenance') }}</div></div>
+    </div>
+
+    @if (p.description) { <div class="card mb"><p class="muted">{{ p.description }}</p><p class="faint small mt">Created {{ p.created_at | date: 'mediumDate' }}</p></div> }
+
+    <div class="card flush">
+      <div class="card-header units-header"><h3>Units</h3>
+        <div class="chips">
+          @for (s of filters; track s) { <button class="chip" [class.active]="filter() === s" (click)="filter.set(s)">{{ s }}</button> }
+        </div>
+      </div>
+      @if (units().length === 0) {
+        <div class="empty"><div class="empty-icon"><app-icon name="key" /></div><h3>No units</h3><p>Add rooms or apartments to this property.</p></div>
+      } @else {
+        <div class="table-wrap"><table class="table">
+          <thead><tr><th>Unit</th><th>Area</th><th>Base rent</th><th>Status</th><th class="right">Actions</th></tr></thead>
+          <tbody>
+            @for (u of units(); track u.id) {
+              <tr>
+                <td class="primary-cell">{{ u.name }}</td>
+                <td class="muted">{{ u.area_m2 ? u.area_m2 + ' m²' : '—' }}</td>
+                <td>{{ u.base_rent | money }}</td>
+                <td><app-status [value]="u.status" /></td>
+                <td class="right">
+                  @if (canManage()) {
+                    <div class="row table-actions">
+                      @if (u.status === 'vacant') {
+                        <button class="btn btn-accent btn-sm" [id]="'unit-lease-' + u.id" (click)="lease(u)"><app-icon name="key" [size]="14" /> Lease</button>
+                      }
+                      <button class="btn btn-sm" [id]="'unit-edit-' + u.id" (click)="openUnit(u)"><app-icon name="edit" [size]="14" /> Edit</button>
+                    </div>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table></div>
+      }
+    </div>
+  } @else {
+    <div class="card skeleton" style="height:300px"></div>
+  }
+</div>
+
+@if (editing() !== undefined) {
+  <app-modal [title]="editing() ? 'Edit ' + editing()!.name : 'Add unit'" (closed)="editing.set(undefined)">
+    <form class="form-grid" (ngSubmit)="saveUnit()" #f="ngForm">
+      <div class="field full"><label for="uf-name">Name</label><input class="input" id="uf-name" name="name" [required]="!editing()" maxlength="100" [(ngModel)]="form.name" placeholder="Room 101" /></div>
+      <div class="field"><label for="uf-rent">Base rent (VND)</label><input class="input" id="uf-rent" name="baseRent" type="number" min="0" step="0.01" [required]="!editing()" [(ngModel)]="form.baseRent" /></div>
+      <div class="field"><label for="uf-area">Area (m²)</label><input class="input" id="uf-area" name="areaM2" type="number" min="0.01" step="0.01" [(ngModel)]="form.areaM2" /></div>
+      @if (editing() && editing()!.status !== 'occupied') {
+        <div class="field full"><label for="uf-status">Status</label>
+          <select class="input" id="uf-status" name="status" [(ngModel)]="form.status">
+            <option value="vacant">Vacant</option><option value="maintenance">Maintenance</option>
+          </select>
+        </div>
+      }
+      @if (editing()?.status === 'occupied') { <div class="alert info full">Status is locked while the unit has an active lease.</div> }
+      <div class="row full form-actions">
+        <button type="button" class="btn btn-ghost" (click)="editing.set(undefined)">Cancel</button>
+        <button class="btn btn-primary" id="uf-submit" [disabled]="saving() || f.invalid">@if (saving()) { <span class="spinner"></span> } Save</button>
+      </div>
+    </form>
+  </app-modal>
+}
+
+@if (showTariffModal()) {
+  <app-modal title="Cập nhật biểu phí dịch vụ tòa nhà" subtitle="Giá điện, nước, internet, vệ sinh, giữ xe áp dụng tự động cho hóa đơn các phòng" (closed)="showTariffModal.set(false)">
+    <form class="form-grid" (ngSubmit)="saveTariffs()">
+      <div class="field"><label>Giá điện (₫/số)</label><input class="input" type="number" [(ngModel)]="tariffForm.electricityRate" name="electricityRate" required /></div>
+      <div class="field"><label>Giá nước (₫/khối)</label><input class="input" type="number" [(ngModel)]="tariffForm.waterRate" name="waterRate" required /></div>
+      <div class="field"><label>Giá internet (₫/phòng)</label><input class="input" type="number" [(ngModel)]="tariffForm.internetRate" name="internetRate" required /></div>
+      <div class="field"><label>Giá vệ sinh (₫/người)</label><input class="input" type="number" [(ngModel)]="tariffForm.cleaningRate" name="cleaningRate" required /></div>
+      <div class="field full"><label>Giá giữ xe máy (₫/xe)</label><input class="input" type="number" [(ngModel)]="tariffForm.parkingRate" name="parkingRate" required /></div>
+
+      <div class="field full divider-field">
+        <span class="bank-section-title">🏦 Thông tin tài khoản ngân hàng nhận thanh toán</span>
+      </div>
+      <div class="field full"><label>Tên ngân hàng</label><input class="input" [(ngModel)]="tariffForm.bankName" name="bankName" placeholder="VD: Vietcombank, MB Bank, Techcombank..." /></div>
+      <div class="field"><label>Số tài khoản (STK)</label><input class="input" [(ngModel)]="tariffForm.bankAccountNumber" name="bankAccountNumber" placeholder="VD: 0123456789" /></div>
+      <div class="field"><label>Tên chủ tài khoản (CTK)</label><input class="input" [(ngModel)]="tariffForm.bankAccountName" name="bankAccountName" placeholder="VD: NGUYEN VAN A" /></div>
+
+      <div class="field full">
+        <label style="display:flex;align-items:center;justify-content:space-between">
+          <span>Ảnh mã QR chuyển khoản (VietQR / Ngân hàng)</span>
+          <span class="faint small">Tự động hiện trên hóa đơn PDF</span>
+        </label>
+        <div style="display:flex;gap:12px;align-items:center;margin-top:4px">
+          <input type="file" #detailQrFileInput accept="image/*" (change)="onQrFileSelected($event)" style="display:none" />
+          <button type="button" class="btn btn-secondary btn-sm" [disabled]="isUploadingQr()" (click)="detailQrFileInput.click()">
+            <app-icon name="plus" [size]="14" /> {{ tariffForm.bankQrCode ? 'Đổi ảnh mã QR' : 'Tải lên ảnh mã QR' }}
+          </button>
+          @if (tariffForm.bankQrCode && !isUploadingQr()) {
+            <button type="button" class="btn btn-ghost btn-sm text-danger" (click)="removeQrCode()">
+              Xóa mã QR
+            </button>
+          }
+        </div>
+
+        @if (isUploadingQr()) {
+          <div class="upload-progress-box">
+            <div class="progress-bar-head">
+              <span class="progress-title"><span class="spinner-sm"></span> Đang tải & xử lý ảnh mã QR...</span>
+              <span class="progress-pct">{{ uploadProgress() }}%</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" [style.width.%]="uploadProgress()"></div>
+            </div>
+          </div>
+        }
+
+        @if (tariffForm.bankQrCode && !isUploadingQr()) {
+          <div style="margin-top:8px;display:flex;align-items:center;gap:10px;padding:6px;background:rgba(255,255,255,0.04);border-radius:6px;width:fit-content">
+            <img [src]="tariffForm.bankQrCode" alt="Mã QR preview" style="width:72px;height:72px;object-fit:contain;background:#fff;border-radius:4px;padding:2px" />
+            <span class="faint small" style="color:#22c55e">✓ Đã tải ảnh QR thành công</span>
+          </div>
+        }
+      </div>
+
+      <div class="row full form-actions">
+        <button type="button" class="btn btn-ghost" (click)="showTariffModal.set(false)">Cancel</button>
+        <button class="btn btn-primary" [disabled]="savingTariff()">@if (savingTariff()) { <span class="spinner"></span> } Lưu thông tin</button>
+      </div>
+    </form>
+  </app-modal>
+}

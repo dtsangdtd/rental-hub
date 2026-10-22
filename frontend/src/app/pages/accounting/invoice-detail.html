@@ -1,0 +1,93 @@
+<div class="page">
+  <a routerLink="/invoices" class="btn btn-ghost btn-sm mb"><app-icon name="back" [size]="15" /> Invoices</a>
+
+  @if (invoice(); as inv) {
+    <header class="page-header">
+      <div>
+        <div class="eyebrow">{{ inv.kind | label }} invoice</div>
+        <h1 class="mono invoice-title">{{ inv.number }}</h1>
+        <p class="subtitle">{{ inv.description }}</p>
+      </div>
+      <div class="row">
+        <a [routerLink]="['/rental-bill']" [queryParams]="{ invoiceId: inv.id }" class="btn btn-secondary">
+          <app-icon name="receipt" [size]="16" /> Hóa đơn tiền nhà (PDF)
+        </a>
+        <app-status [value]="inv.status" />
+        @if (canVoid()) { <button class="btn btn-danger" id="invoice-void" (click)="voidInvoice()"><app-icon name="ban" [size]="16" /> Void</button> }
+      </div>
+    </header>
+
+    <div class="grid detail">
+      <div class="stack">
+        <div class="card">
+          <div class="amounts">
+            <div><span class="faint small">Amount</span><b>{{ inv.amount | money: inv.currency }}</b></div>
+            <div><span class="faint small">Paid</span><b class="text-success">{{ inv.amount_paid | money: inv.currency }}</b></div>
+            <div><span class="faint small">Remaining</span><b [class.text-warning]="remaining() > 0">{{ remaining() | money: inv.currency }}</b></div>
+          </div>
+          <div class="progress mt progress-bar"><span [style.width.%]="paidPct()"></span></div>
+          <p class="faint small paid-pct-text">{{ paidPct() }}% paid</p>
+          <hr class="divider" />
+          <dl class="kv">
+            <dt>Due date</dt><dd [class.text-danger]="overdue()">{{ inv.due_date | date: 'longDate' }} @if (overdue()) { · overdue }</dd>
+            @if (inv.period) { <dt>Period</dt><dd>{{ inv.period }}</dd> }
+            <dt>Reference</dt>
+            <dd>
+              {{ inv.reference_type | label }}
+              @if (inv.reference_type === 'order' && inv.reference_id) { · <a [routerLink]="['/orders', inv.reference_id]">view order</a> }
+              @else if (inv.reference_id) { · <span class="mono faint">{{ inv.reference_id.slice(0, 8) }}</span> }
+            </dd>
+            <dt>Currency</dt><dd>{{ inv.currency }}</dd>
+            <dt>Issued</dt><dd>{{ inv.created_at | date: 'medium' }}</dd>
+          </dl>
+        </div>
+
+        <div class="card flush">
+          <div class="card-header payments-header"><h3>Payments</h3><span class="faint small">{{ inv.payments.length }} recorded</span></div>
+          @if (inv.payments.length === 0) {
+            <div class="empty empty-payments"><p>No payments yet.</p></div>
+          } @else {
+            <div class="timeline">
+              @for (p of inv.payments; track p.id) {
+                <div class="tl-item">
+                  <span class="tl-dot"><app-icon [name]="methodIcon(p.method)" [size]="15" /></span>
+                  <div class="tl-content"><b>{{ p.amount | money: inv.currency }}</b> <span class="muted">via {{ p.method | label }}</span>
+                    @if (p.note) { <div class="faint small">{{ p.note }}</div> }
+                  </div>
+                  <span class="faint small nowrap">{{ p.paid_at | date: 'medium' }}</span>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+
+      @if (canPay()) {
+        <div class="card pay">
+          <h3>Record payment</h3>
+          <p class="muted small pay-subtitle">When the invoice is fully paid, linked shop orders are marked paid automatically.</p>
+          <form class="stack" (ngSubmit)="pay()" #f="ngForm">
+            <div class="field">
+              <label for="pay-amount">Amount ({{ inv.currency }})</label>
+              <input class="input" id="pay-amount" name="amount" type="number" min="0.01" step="0.01" [max]="remaining()" required [(ngModel)]="amount" />
+              <div class="row"><button type="button" class="btn btn-ghost btn-sm" (click)="amount = remaining()">Full ({{ remaining() | money: inv.currency }})</button>
+                <button type="button" class="btn btn-ghost btn-sm" (click)="amount = half()">Half</button></div>
+            </div>
+            <div class="field">
+              <span class="label">Method</span>
+              <div class="methods">
+                @for (m of methods; track m) {
+                  <button type="button" class="method" [id]="'pay-method-' + m" [class.active]="method() === m" (click)="method.set(m)"><app-icon [name]="methodIcon(m)" [size]="16" />{{ m | label }}</button>
+                }
+              </div>
+            </div>
+            <div class="field"><label for="pay-note">Note</label><input class="input" id="pay-note" name="note" maxlength="500" [(ngModel)]="note" placeholder="optional" /></div>
+            <button class="btn btn-primary btn-block" id="pay-submit" [disabled]="saving() || f.invalid || !amount || amount > remaining()">@if (saving()) { <span class="spinner"></span> } Record payment</button>
+          </form>
+        </div>
+      }
+    </div>
+  } @else {
+    <div class="card skeleton skeleton-box"></div>
+  }
+</div>

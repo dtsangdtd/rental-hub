@@ -1,0 +1,198 @@
+<div class="page">
+  <header class="page-header">
+    <div><div class="eyebrow">Rentals</div><h1>Leases</h1><p class="subtitle">{{ activeCount() }} active · creating a lease auto-issues deposit &amp; first-month invoices</p></div>
+    <div class="row">
+      <div class="chips">@for (s of filters; track s) { <button class="chip" [class.active]="filter() === s" (click)="filter.set(s)">{{ s }}</button> }</div>
+      @if (canManage()) { <button class="btn btn-primary" id="lease-new" (click)="openCreate()"><app-icon name="plus" /> New lease</button> }
+    </div>
+  </header>
+
+  <div class="card flush">
+    @if (loading()) {
+      <div class="skeleton-wrap stack">@for (i of [1, 2, 3]; track i) { <div class="skeleton" style="height:40px"></div> }</div>
+    } @else if (filtered().length === 0) {
+      <div class="empty"><div class="empty-icon"><app-icon name="key" [size]="26" /></div><h3>No leases</h3><p>Create a lease to start billing a tenant.</p></div>
+    } @else {
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>Tenant</th><th>Unit</th><th>Period</th><th class="right">Rent / month</th><th class="right">Deposit</th><th>Due day</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          @for (l of filtered(); track l.id) {
+            <tr>
+              <td class="primary-cell">
+                <div class="tenant-name">{{ l.tenant_name }}</div>
+                <div class="small occupant-badge-wrap">
+                  <span class="badge occupant-chip"
+                        [class.multi]="(l.occupant_count || 1) > 1"
+                        (click)="openOccupants(l)"
+                        title="Bấm để xem và quản lý danh sách người ở trong phòng này">
+                    👥 {{ l.occupant_count || 1 }} người ở phòng
+                  </span>
+                </div>
+              </td>
+              <td><div>{{ l.unit_name }}</div><div class="faint small">{{ l.property_name }}</div></td>
+              <td class="nowrap">{{ l.start_date | date: 'mediumDate' }} → {{ l.end_date ? (l.end_date | date: 'mediumDate') : 'open' }}</td>
+              <td class="right nowrap">{{ l.monthly_rent | money: l.currency }}</td>
+              <td class="right nowrap muted">{{ l.deposit | money: l.currency }}</td>
+              <td class="muted">Day {{ l.due_day }}</td>
+              <td><app-status [value]="l.status" /></td>
+              <td class="right">
+                <div class="actions-group">
+                  <button class="btn btn-secondary btn-sm" (click)="openOccupants(l)" title="Quản lý danh sách người ở trong phòng">
+                    👥 Người ở ({{ l.occupant_count || 1 }})
+                  </button>
+                  <a [routerLink]="['/rental-bill']" [queryParams]="{ leaseId: l.id }" class="btn btn-secondary btn-sm" title="Xuất hóa đơn tiền nhà (PDF)">
+                    Hóa đơn PDF
+                  </a>
+                  @if (canManage() && l.status === 'active') {
+                    <button class="btn btn-danger btn-sm" [id]="'lease-terminate-' + l.id" (click)="terminate(l)">Terminate</button>
+                  }
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table></div>
+    }
+  </div>
+</div>
+
+@if (showCreate()) {
+  <app-modal title="New lease" subtitle="Only vacant units can be leased." [width]="640" (closed)="showCreate.set(false)">
+    <form class="form-grid" (ngSubmit)="create()" #f="ngForm">
+      <div class="field"><label for="lf-property">Property</label>
+        <select class="input" id="lf-property" name="propertyId" required [ngModel]="form.propertyId" (ngModelChange)="selectProperty($event)">
+          <option value="" disabled>Select property…</option>
+          @for (p of properties(); track p.id) { <option [value]="p.id">{{ p.name }}</option> }
+        </select>
+      </div>
+      <div class="field"><label for="lf-unit">Unit</label>
+        <select class="input" id="lf-unit" name="unitId" required [ngModel]="form.unitId" (ngModelChange)="selectUnit($event)" [disabled]="!form.propertyId">
+          <option value="" disabled>{{ vacantUnits().length ? 'Select unit…' : 'No vacant units' }}</option>
+          @for (u of vacantUnits(); track u.id) { <option [value]="u.id">{{ u.name }} · {{ u.base_rent | money }}</option> }
+        </select>
+      </div>
+      <div class="field full"><label for="lf-tenant">Tenant</label>
+        <select class="input" id="lf-tenant" name="tenantId" required [(ngModel)]="form.tenantId">
+          <option value="" disabled>Select tenant…</option>
+          @for (t of tenants(); track t.id) { <option [value]="t.id">{{ t.full_name }}{{ t.phone ? ' · ' + t.phone : '' }}</option> }
+        </select>
+        @if (tenants().length === 0) { <span class="hint">Create a tenant first on the Tenants page.</span> }
+      </div>
+      <div class="field"><label for="lf-start">Start date</label><input class="input" id="lf-start" name="startDate" type="date" required [(ngModel)]="form.startDate" /></div>
+      <div class="field"><label for="lf-end">End date</label><input class="input" id="lf-end" name="endDate" type="date" [min]="form.startDate" [(ngModel)]="form.endDate" /></div>
+      <div class="field"><label for="lf-rent">Monthly rent</label><input class="input" id="lf-rent" name="monthlyRent" type="number" min="0" step="0.01" [(ngModel)]="form.monthlyRent" placeholder="Defaults to unit base rent" /></div>
+      <div class="field"><label for="lf-deposit">Deposit</label><input class="input" id="lf-deposit" name="deposit" type="number" min="0" step="0.01" [(ngModel)]="form.deposit" /></div>
+      <div class="field"><label for="lf-currency">Currency</label><input class="input" id="lf-currency" name="currency" required minlength="3" maxlength="3" [(ngModel)]="form.currency" style="text-transform:uppercase" /></div>
+      <div class="field"><label for="lf-due">Due day of month</label><input class="input" id="lf-due" name="dueDay" type="number" min="1" max="28" required [(ngModel)]="form.dueDay" /></div>
+      <div class="row full form-actions">
+        <button type="button" class="btn btn-ghost" (click)="showCreate.set(false)">Cancel</button>
+        <button class="btn btn-primary" id="lf-submit" [disabled]="saving() || f.invalid">@if (saving()) { <span class="spinner"></span> } Create lease</button>
+      </div>
+    </form>
+  </app-modal>
+}
+
+@if (activeOccupantLease(); as al) {
+  <app-modal [title]="'Danh sách người ở — Phòng ' + (al.unit_name || '')"
+             [subtitle]="(al.property_name || 'Cơ sở') + ' · ' + (occupants().length ? occupants().length + ' người đang ở' : 'Chưa có danh sách')"
+             [width]="800"
+             (closed)="closeOccupants()">
+    <div class="stack occupants-modal-body">
+      <!-- Current Occupants List -->
+      <div class="card p-sm">
+        <h4 class="card-subtitle">Danh sách thành viên đang ở trong phòng</h4>
+        @if (loadingOccupants()) {
+          <div class="faint small">Đang tải danh sách...</div>
+        } @else if (occupants().length === 0) {
+          <div class="faint small empty-occupants">
+            Chưa có danh sách người ở ghép. Khách thuê chính: <strong>{{ al.tenant_name }}</strong>.
+            <br>Hãy thêm người ở ghép bên dưới.
+          </div>
+        } @else {
+          <div class="table-wrap">
+            <table class="table table-compact">
+              <thead>
+                <tr>
+                  <th>Họ và tên</th>
+                  <th>Quan hệ</th>
+                  <th>SĐT</th>
+                  <th>CCCD/CMND</th>
+                  <th>Biển số xe</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (occ of occupants(); track occ.id) {
+                  <tr>
+                    <td>
+                      <strong>{{ occ.full_name }}</strong>
+                      @if (occ.is_primary) { <span class="badge primary-tag">Chủ HĐ</span> }
+                    </td>
+                    <td><span class="badge rel-tag">{{ occ.relationship || 'Ở ghép' }}</span></td>
+                    <td>{{ occ.phone || '—' }}</td>
+                    <td>{{ occ.id_number || '—' }}</td>
+                    <td>{{ occ.vehicle_plate || '—' }}</td>
+                    <td class="right">
+                      <button type="button" class="btn btn-danger btn-sm btn-delete" (click)="deleteOccupant(occ)" title="Xóa người này">✕</button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+
+      <!-- Add New Occupant Form -->
+      <div class="card p-sm">
+        <h4 class="card-subtitle-add">+ Thêm người vào phòng</h4>
+        <form class="form-grid" (ngSubmit)="addOccupant()" #of="ngForm">
+          <div class="field">
+            <label>Họ và tên *</label>
+            <input class="input" name="fullName" required [(ngModel)]="occForm.fullName" placeholder="VD: Trần Thị B" />
+          </div>
+          <div class="field">
+            <label>Quan hệ với chủ phòng</label>
+            <select class="input" name="relationship" [(ngModel)]="occForm.relationship">
+              <option value="Chủ hợp đồng">Chủ hợp đồng</option>
+              <option value="Ở ghép">Ở ghép</option>
+              <option value="Vợ / Chồng">Vợ / Chồng</option>
+              <option value="Con cái">Con cái</option>
+              <option value="Bạn bè">Bạn bè</option>
+              <option value="Người thân">Người thân</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Số điện thoại</label>
+            <input class="input" name="phone" [(ngModel)]="occForm.phone" placeholder="VD: 0987 654 321" />
+          </div>
+          <div class="field">
+            <label>Số CCCD / CMND (Tạm trú)</label>
+            <input class="input" name="idNumber" [(ngModel)]="occForm.idNumber" placeholder="VD: 001200001234" />
+          </div>
+          <div class="field">
+            <label>Biển số xe (nếu có)</label>
+            <input class="input" name="vehiclePlate" [(ngModel)]="occForm.vehiclePlate" placeholder="VD: 29B1-123.45" />
+          </div>
+          <div class="field">
+            <label>Giới tính</label>
+            <select class="input" name="gender" [(ngModel)]="occForm.gender">
+              <option value="Nam">Nam</option>
+              <option value="Nữ">Nữ</option>
+              <option value="Khác">Khác</option>
+            </select>
+          </div>
+          <div class="field full">
+            <label>Ghi chú</label>
+            <input class="input" name="notes" [(ngModel)]="occForm.notes" placeholder="VD: Đăng ký tạm trú từ tháng 10" />
+          </div>
+          <div class="row full form-actions-top">
+            <button type="submit" class="btn btn-primary btn-sm" [disabled]="addingOcc() || of.invalid">
+              @if (addingOcc()) { <span class="spinner"></span> } + Thêm vào phòng
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </app-modal>
+}

@@ -1,0 +1,134 @@
+<div class="page">
+  <a routerLink="/orders" class="btn btn-ghost btn-sm mb">
+    <app-icon name="back" [size]="15" /> Orders
+  </a>
+
+  @if (order(); as o) {
+    <header class="page-header">
+      <div>
+        <div class="eyebrow">Commerce Order</div>
+        <h1 class="mono">#{{ o.id.slice(0, 8) }}</h1>
+        <p class="subtitle">Placed on {{ o.created_at | date: 'medium' }}</p>
+      </div>
+      <div class="row">
+        <app-status [value]="o.status" />
+
+        @if (canCancel()) {
+          <button class="btn btn-danger btn-sm" id="order-cancel-btn" (click)="cancel()">
+            <app-icon name="ban" [size]="14" /> Cancel Order
+          </button>
+        }
+
+        @if (canFulfill()) {
+          <button class="btn btn-primary btn-sm" id="order-fulfill-btn" (click)="fulfill()">
+            <app-icon name="check" [size]="14" /> Mark Fulfilled
+          </button>
+        }
+      </div>
+    </header>
+
+    <div class="grid detail-layout">
+      <!-- Items breakdown -->
+      <div class="stack">
+        <div class="card flush">
+          <div class="card-header items-header">
+            <h3>Purchased Items</h3>
+            <span class="faint small">{{ o.items.length }} line items</span>
+          </div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th class="right">Unit Price</th>
+                  <th class="center">Quantity</th>
+                  <th class="right">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of o.items; track item.id) {
+                  <tr>
+                    <td class="primary-cell">{{ item.name }}</td>
+                    <td class="right nowrap muted">{{ item.unit_price | money: o.currency }}</td>
+                    <td class="center font-medium">{{ item.quantity }}</td>
+                    <td class="right nowrap font-medium">
+                      {{ (item.unit_price * item.quantity) | money: o.currency }}
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        @if (o.note) {
+          <div class="card">
+            <h3>Delivery Note</h3>
+            <p class="muted mt delivery-note">{{ o.note }}</p>
+          </div>
+        }
+      </div>
+
+      <!-- Order Summary & Invoice Link -->
+      <div class="stack">
+        <div class="card">
+          <h3>Payment &amp; Billing</h3>
+          <div class="divider"></div>
+
+          <div class="row summary-row">
+            <span class="muted">Order Status</span>
+            <span class="spacer"></span>
+            <app-status [value]="o.status" />
+          </div>
+
+          <div class="row summary-row total mt">
+            <span>Total</span>
+            <span class="spacer"></span>
+            <span class="primary-cell text-primary">{{ o.total | money: o.currency }}</span>
+          </div>
+
+          <div class="divider"></div>
+
+          @if (invoice(); as inv) {
+            <div class="invoice-box">
+              <div class="row">
+                <div>
+                  <span class="eyebrow invoice-box-eyebrow">Linked Invoice</span>
+                  <div class="mono font-medium">{{ inv.number }}</div>
+                </div>
+                <span class="spacer"></span>
+                <app-status [value]="inv.status" />
+              </div>
+              <div class="row mt small">
+                <span class="muted">Paid:</span>
+                <span>{{ inv.amount_paid | money: inv.currency }}</span>
+                <span class="spacer"></span>
+                <a [routerLink]="['/invoices', inv.id]" class="btn btn-sm btn-ghost">
+                  View invoice →
+                </a>
+              </div>
+            </div>
+          } @else {
+            <div class="faint small">
+              Accounting invoice is issued automatically upon order placement.
+            </div>
+          }
+        </div>
+
+        <div class="card">
+          <h3>Order Lifecycle</h3>
+          <dl class="kv mt">
+            <dt>Customer ID</dt>
+            <dd class="mono faint small">{{ o.customer_id.slice(0, 8) }}...</dd>
+            <dt>Order ID</dt>
+            <dd class="mono faint small">{{ o.id }}</dd>
+            <dt>Last updated</dt>
+            <dd class="muted">{{ o.updated_at | date: 'medium' }}</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  } @else {
+    <div class="card skeleton skeleton-detail"></div>
+  }
+</div>

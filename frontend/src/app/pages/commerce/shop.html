@@ -1,0 +1,97 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <div class="eyebrow">Commerce</div>
+      <h1>Home Essentials &amp; Services</h1>
+      <p class="subtitle">Furniture, appliances, amenities and repair services for your home</p>
+    </div>
+    <div class="row">
+      <div class="search">
+        <app-icon name="search" [size]="16" />
+        <input class="input" id="shop-search" placeholder="Search products..." [(ngModel)]="q" />
+      </div>
+      <a routerLink="/cart" class="btn btn-primary" id="shop-cart-btn">
+        <app-icon name="cart" />
+        <span>Cart</span>
+        @if (cart.count() > 0) {
+          <span class="badge cart-badge">{{ cart.count() }}</span>
+        }
+      </a>
+    </div>
+  </header>
+
+  <!-- Category filters -->
+  <div class="chips mb">
+    @for (c of categories(); track c) {
+      <button class="chip" [class.active]="selectedCategory() === c" (click)="selectedCategory.set(c)">
+        {{ c === 'all' ? 'All Products' : c }}
+      </button>
+    }
+  </div>
+
+  @if (loading()) {
+    <div class="grid grid-auto">
+      @for (i of [1, 2, 3, 4, 5, 6]; track i) {
+        <div class="card skeleton skeleton-card"></div>
+      }
+    </div>
+  } @else if (filtered().length === 0) {
+    <div class="card empty">
+      <div class="empty-icon"><app-icon name="bag" [size]="28" /></div>
+      <h3>No products available</h3>
+      <p>Check back later or try adjusting your search terms.</p>
+    </div>
+  } @else {
+    <div class="grid grid-auto stagger">
+      @for (p of filtered(); track p.id) {
+        <div class="card flush product-card" [id]="'prod-' + p.id">
+          <div class="img-wrap">
+            <img [src]="imgFor(p.category)" [alt]="p.name" />
+            <span class="category-tag">{{ p.category }}</span>
+            @if (p.stock <= 0) {
+              <span class="stock-tag out">Out of stock</span>
+            } @else if (p.stock <= 3) {
+              <span class="stock-tag low">Only {{ p.stock }} left</span>
+            }
+          </div>
+
+          <div class="card-body">
+            <div class="prod-info">
+              <h3 class="prod-title" [title]="p.name">{{ p.name }}</h3>
+              @if (p.description) {
+                <p class="muted small desc">{{ p.description }}</p>
+              }
+            </div>
+
+            <div class="prod-footer">
+              <div class="price-box">
+                <span class="price">{{ p.price | money: p.currency }}</span>
+                <span class="faint small">SKU: {{ p.sku }}</span>
+              </div>
+
+              @if (p.stock > 0) {
+                @if (cart.quantityOf(p.id) > 0) {
+                  <div class="qty-control">
+                    <button class="btn btn-ghost btn-sm btn-icon" (click)="cart.setQuantity(p.id, cart.quantityOf(p.id) - 1)">
+                      <app-icon name="minus" [size]="14" />
+                    </button>
+                    <span class="qty-num">{{ cart.quantityOf(p.id) }}</span>
+                    <button class="btn btn-ghost btn-sm btn-icon" [disabled]="cart.quantityOf(p.id) >= p.stock" (click)="cart.add(p, 1)">
+                      <app-icon name="plus" [size]="14" />
+                    </button>
+                  </div>
+                } @else {
+                  <button class="btn btn-accent btn-sm" [id]="'add-to-cart-' + p.id" (click)="addToCart(p)">
+                    <app-icon name="cart" [size]="14" /> Add
+                  </button>
+                }
+              } @else {
+                <button class="btn btn-sm" disabled>Sold out</button>
+              }
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>

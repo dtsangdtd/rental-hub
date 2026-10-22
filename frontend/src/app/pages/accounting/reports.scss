@@ -1,0 +1,38 @@
+.filter-bar {
+  background: var(--surface-2);
+  padding: 6px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.skeleton-stat {
+  height: 120px;
+}
+
+.empty-box {
+  padding: 28px;
+}
+
+.empty-box-lg {
+  padding: 32px;
+}
+
+.breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.breakdown-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.progress-gap {
+  margin-top: 6px;
+}
+
+.outstanding-header {
+  padding: 20px 22px 10px;
+}

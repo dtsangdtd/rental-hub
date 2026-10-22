@@ -1,0 +1,90 @@
+.avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 13px;
+  background: var(--grad-accent);
+  color: #04121a;
+  flex-shrink: 0;
+}
+
+.tenant-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.address-text {
+  max-width: 280px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+
+.pill-gender {
+  font-size: 0.72rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  display: inline-block;
+  margin-top: 2px;
+
+  &.male {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+  }
+  &.female {
+    background: rgba(244, 114, 182, 0.15);
+    color: #f472b6;
+  }
+}
+
+.badge-portal {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 9999px;
+
+  &.success {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+  }
+  &.neutral {
+    background: rgba(148, 163, 184, 0.1);
+    color: #94a3b8;
+  }
+}
+
+.actions-cell {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.form-section-title {
+  grid-column: 1 / -1;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #38bdf8;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 4px;
+  margin-top: 6px;
+  margin-bottom: 2px;
+}
+
+.address-preview {
+  grid-column: 1 / -1;
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px dashed rgba(56, 189, 248, 0.3);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  color: #e2e8f0;
+}

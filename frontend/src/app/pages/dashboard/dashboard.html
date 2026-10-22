@@ -1,0 +1,115 @@
+<div class="page">
+  <section class="hero card">
+    <div class="hero-glow"></div>
+    <div class="hero-text">
+      <div class="eyebrow">{{ today | date: 'EEEE, d MMMM y' }}</div>
+      <h1>{{ greeting }}, {{ auth.user()?.fullName?.split(' ')?.[0] }} 👋</h1>
+      <p class="muted">
+        @if (isFinance()) { Here's how your portfolio is doing this month. }
+        @else { Track your invoices and orders, or shop for your home. }
+      </p>
+    </div>
+    <div class="actions">
+      @for (a of actions(); track a.path + a.label) {
+        <a class="action" [routerLink]="a.path"><app-icon [name]="a.icon" /><span>{{ a.label }}</span></a>
+      }
+    </div>
+  </section>
+
+  @if (loading()) {
+    <div class="grid grid-4 mt">
+      @for (i of [1, 2, 3, 4]; track i) { <div class="card skeleton" style="height:128px"></div> }
+    </div>
+  } @else {
+    <!-- Stat tiles -->
+    <div class="grid grid-4 mt stagger">
+      @if (isFinance()) {
+        <div class="card stat"><div class="orb"></div><div class="icon-wrap"><app-icon name="money" /></div>
+          <div class="label">Income · this month</div><div class="value">{{ totals().income | money: currency() }}</div><div class="hint">Payments received</div></div>
+        <div class="card stat warm"><div class="orb"></div><div class="icon-wrap"><app-icon name="wallet" /></div>
+          <div class="label">Expenses · this month</div><div class="value">{{ totals().expenses | money: currency() }}</div><div class="hint">Recorded costs</div></div>
+        <div class="card stat accent"><div class="orb"></div><div class="icon-wrap"><app-icon name="chart" /></div>
+          <div class="label">Net profit</div><div class="value" [class.text-danger]="totals().profit < 0">{{ totals().profit | money: currency() }}</div><div class="hint">Income − expenses</div></div>
+        <div class="card stat"><div class="orb"></div><div class="icon-wrap"><app-icon name="receipt" /></div>
+          <div class="label">Outstanding</div><div class="value">{{ outstanding().total | money: currency() }}</div><div class="hint">{{ outstanding().count }} open invoices</div></div>
+      } @else {
+        <div class="card stat warm"><div class="orb"></div><div class="icon-wrap"><app-icon name="receipt" /></div>
+          <div class="label">Amount due</div><div class="value">{{ amountDue() | money: dueCurrency() }}</div><div class="hint">{{ openInvoices().length }} open invoices</div></div>
+        <div class="card stat"><div class="orb"></div><div class="icon-wrap"><app-icon name="package" /></div>
+          <div class="label">Orders</div><div class="value">{{ orders().length }}</div><div class="hint">All time</div></div>
+        <div class="card stat accent"><div class="orb"></div><div class="icon-wrap"><app-icon name="cart" /></div>
+          <div class="label">In cart</div><div class="value">{{ cart.count() }}</div><div class="hint"><a routerLink="/cart">Go to cart →</a></div></div>
+        <div class="card stat"><div class="orb"></div><div class="icon-wrap"><app-icon name="check" /></div>
+          <div class="label">Paid invoices</div><div class="value">{{ invoices().length - openInvoices().length }}</div><div class="hint">Settled or void</div></div>
+      }
+    </div>
+
+    <div class="grid mt" [class.split]="canReadProperty() || isFinance()">
+      <div class="stack">
+        @if (canReadProperty()) {
+          <div class="card occupancy">
+            <div class="ring" [style.--p]="occupancy()"><div><b>{{ occupancy() }}%</b><span>occupied</span></div></div>
+            <div class="stack" style="flex:1">
+              <div class="card-header" style="margin:0"><h3>Portfolio occupancy</h3><a routerLink="/properties" class="btn btn-sm">View</a></div>
+              <div class="mini-stats">
+                <div><span class="faint small">Properties</span><b>{{ properties().length }}</b></div>
+                <div><span class="faint small">Units</span><b>{{ units() }}</b></div>
+                <div><span class="faint small">Occupied</span><b class="text-success">{{ occupied() }}</b></div>
+                <div><span class="faint small">Vacant</span><b>{{ units() - occupied() }}</b></div>
+              </div>
+            </div>
+          </div>
+        }
+        @if (isFinance()) {
+          <div class="card">
+            <div class="card-header"><h3>Cash flow · {{ currency() }}</h3><a routerLink="/reports" class="btn btn-sm">Full report</a></div>
+            <div class="bars">
+              <div class="bar-row"><span>Income</span><div class="progress"><span [style.width.%]="(totals().income / barMax()) * 100"></span></div><b>{{ totals().income | money: currency() }}</b></div>
+              <div class="bar-row"><span>Expenses</span><div class="progress warm"><span [style.width.%]="(totals().expenses / barMax()) * 100"></span></div><b>{{ totals().expenses | money: currency() }}</b></div>
+            </div>
+          </div>
+        }
+      </div>
+
+      <div class="card flush">
+        <div class="card-header pad"><h3>Recent invoices</h3><a routerLink="/invoices" class="btn btn-sm">All invoices</a></div>
+        @if (invoices().length === 0) {
+          <div class="empty"><div class="empty-icon"><app-icon name="receipt" /></div><p>No invoices yet.</p></div>
+        } @else {
+          <div class="table-wrap"><table class="table">
+            <tbody>
+              @for (inv of invoices().slice(0, 6); track inv.id) {
+                <tr class="clickable" [routerLink]="['/invoices', inv.id]">
+                  <td><div class="primary-cell">{{ inv.number }}</div><div class="faint small">{{ inv.description }}</div></td>
+                  <td class="right nowrap">{{ inv.amount | money: inv.currency }}</td>
+                  <td class="right"><app-status [value]="inv.status" /></td>
+                </tr>
+              }
+            </tbody>
+          </table></div>
+        }
+      </div>
+    </div>
+
+    <div class="card flush mt">
+      <div class="card-header pad"><h3>Recent orders</h3><a routerLink="/orders" class="btn btn-sm">All orders</a></div>
+      @if (orders().length === 0) {
+        <div class="empty"><div class="empty-icon"><app-icon name="bag" /></div><p>No orders yet. <a routerLink="/shop">Browse the shop →</a></p></div>
+      } @else {
+        <div class="table-wrap"><table class="table">
+          <thead><tr><th>Order</th><th>Date</th><th class="right">Total</th><th class="right">Status</th></tr></thead>
+          <tbody>
+            @for (o of orders().slice(0, 5); track o.id) {
+              <tr class="clickable" [routerLink]="['/orders', o.id]">
+                <td class="mono">#{{ o.id.slice(0, 8) }}</td>
+                <td class="muted">{{ o.created_at | date: 'medium' }}</td>
+                <td class="right">{{ o.total | money: o.currency }}</td>
+                <td class="right"><app-status [value]="o.status" /></td>
+              </tr>
+            }
+          </tbody>
+        </table></div>
+      }
+    </div>
+  }
+</div>

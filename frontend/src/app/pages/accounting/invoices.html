@@ -1,0 +1,85 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <div class="eyebrow">Accounting</div>
+      <h1>{{ isFinance() ? 'Invoices' : 'My invoices' }}</h1>
+      <p class="subtitle">Rent, deposits, shop orders and manual charges.</p>
+    </div>
+    @if (isFinance()) {
+      <div class="row">
+        <button class="btn" id="invoice-generate" (click)="openGenerate()"><app-icon name="refresh" [size]="16" /> Generate rent</button>
+        <button class="btn btn-primary" id="invoice-new" (click)="openCreate()"><app-icon name="plus" /> New invoice</button>
+      </div>
+    }
+  </header>
+
+  <div class="grid grid-3 mb stagger">
+    <div class="card stat"><div class="orb"></div><div class="label">Billed</div><div class="value">{{ sums().billed | money: currency() }}</div><div class="hint">{{ visible().length }} invoices shown</div></div>
+    <div class="card stat accent"><div class="orb"></div><div class="label">Collected</div><div class="value text-success">{{ sums().paid | money: currency() }}</div><div class="hint">{{ collectRate() }}% collection rate</div></div>
+    <div class="card stat warm"><div class="orb"></div><div class="label">Outstanding</div><div class="value text-warning">{{ sums().open | money: currency() }}</div><div class="hint">{{ overdueCount() }} overdue</div></div>
+  </div>
+
+  <div class="card flush">
+    <div class="row toolbar">
+      <div class="chips">@for (s of statuses; track s) { <button class="chip" [class.active]="status() === s" [id]="'invoice-filter-' + s" (click)="setStatus(s)">{{ s }}</button> }</div>
+      <span class="spacer"></span>
+      <label class="faint small" for="invoice-period">Period</label>
+      <input class="input period-input" id="invoice-period" type="month" [ngModel]="period()" (ngModelChange)="setPeriod($event)" />
+      @if (period()) { <button class="btn btn-ghost btn-sm" (click)="setPeriod('')">Clear</button> }
+    </div>
+
+    @if (loading()) {
+      <div class="skeleton-wrap stack">@for (i of [1, 2, 3, 4]; track i) { <div class="skeleton" style="height:40px"></div> }</div>
+    } @else if (visible().length === 0) {
+      <div class="empty"><div class="empty-icon"><app-icon name="receipt" [size]="26" /></div><h3>No invoices</h3><p>Nothing matches the current filters.</p></div>
+    } @else {
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>Number</th><th>Description</th><th>Kind</th><th>Due</th><th class="right">Amount</th><th class="right">Paid</th><th>Status</th></tr></thead>
+        <tbody>
+          @for (inv of visible(); track inv.id) {
+            <tr class="clickable" [routerLink]="['/invoices', inv.id]" [id]="'invoice-' + inv.id">
+              <td class="mono primary-cell">{{ inv.number }}</td>
+              <td><div>{{ inv.description }}</div>@if (inv.period) { <div class="faint small">Period {{ inv.period }}</div> }</td>
+              <td><span class="badge neutral">{{ inv.kind | label }}</span></td>
+              <td class="nowrap" [class.text-danger]="isOverdue(inv)">{{ inv.due_date | date: 'mediumDate' }}</td>
+              <td class="right nowrap">{{ inv.amount | money: inv.currency }}</td>
+              <td class="right nowrap muted">{{ inv.amount_paid | money: inv.currency }}</td>
+              <td><app-status [value]="inv.status" /></td>
+            </tr>
+          }
+        </tbody>
+      </table></div>
+    }
+  </div>
+</div>
+
+@if (showGenerate()) {
+  <app-modal title="Generate monthly rent" subtitle="Creates one rent invoice per active lease. Safe to run again — duplicates are skipped." [width]="460" (closed)="showGenerate.set(false)">
+    <form class="stack" (ngSubmit)="generate()">
+      <div class="field"><label for="gen-period">Period</label><input class="input" id="gen-period" name="period" type="month" required [(ngModel)]="genPeriod" /></div>
+      @if (genResult(); as r) {
+        <div class="alert info">Period <b>{{ r.period }}</b>: {{ r.activeLeases }} active leases, <b>{{ r.created }}</b> new invoices created.</div>
+      }
+      <div class="row modal-actions">
+        <button type="button" class="btn btn-ghost" (click)="showGenerate.set(false)">Close</button>
+        <button class="btn btn-primary" id="gen-submit" [disabled]="saving() || !genPeriod">@if (saving()) { <span class="spinner"></span> } Generate</button>
+      </div>
+    </form>
+  </app-modal>
+}
+
+@if (showCreate()) {
+  <app-modal title="New invoice" subtitle="A manual charge, e.g. utilities or repairs." (closed)="showCreate.set(false)">
+    <form class="form-grid" (ngSubmit)="create()" #f="ngForm">
+      <div class="field full"><label for="if-desc">Description</label><input class="input" id="if-desc" name="description" required maxlength="500" [(ngModel)]="form.description" placeholder="Electricity — October" /></div>
+      <div class="field"><label for="if-amount">Amount</label><input class="input" id="if-amount" name="amount" type="number" min="0.01" step="0.01" required [(ngModel)]="form.amount" /></div>
+      <div class="field"><label for="if-currency">Currency</label><input class="input" id="if-currency" name="currency" required minlength="3" maxlength="3" style="text-transform:uppercase" [(ngModel)]="form.currency" /></div>
+      <div class="field"><label for="if-due">Due date</label><input class="input" id="if-due" name="dueDate" type="date" required [(ngModel)]="form.dueDate" /></div>
+      <div class="field"><label for="if-customer">Customer user ID</label><input class="input mono" id="if-customer" name="customerId" pattern="^[0-9a-fA-F-]{36}$" [(ngModel)]="form.customerId" placeholder="optional UUID" /><span class="hint">Lets that user see the invoice</span></div>
+      <div class="row full modal-actions">
+        <button type="button" class="btn btn-ghost" (click)="showCreate.set(false)">Cancel</button>
+        <button class="btn btn-primary" id="if-submit" [disabled]="saving() || f.invalid">@if (saving()) { <span class="spinner"></span> } Create</button>
+      </div>
+    </form>
+  </app-modal>
+}

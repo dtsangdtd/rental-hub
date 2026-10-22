@@ -1,0 +1,118 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <div class="eyebrow">Accounting</div>
+      <h1>Expenses</h1>
+      <p class="subtitle">{{ items().length }} expenses recorded · {{ totalExpense() | money: currency() }}</p>
+    </div>
+    <div class="row">
+      <div class="search">
+        <app-icon name="search" [size]="16" />
+        <input class="input" id="expense-search" placeholder="Search description..." [(ngModel)]="q" />
+      </div>
+      @if (canManage()) {
+        <button class="btn btn-primary" id="expense-new" (click)="openCreate()">
+          <app-icon name="plus" /> New expense
+        </button>
+      }
+    </div>
+  </header>
+
+  <div class="card flush">
+    <div class="row toolbar">
+      <div class="chips">
+        @for (cat of categoryFilters; track cat) {
+          <button class="chip" [class.active]="selectedCategory() === cat" (click)="selectedCategory.set(cat)">
+            {{ cat === 'all' ? 'All categories' : (cat | label) }}
+          </button>
+        }
+      </div>
+    </div>
+
+    @if (loading()) {
+      <div class="skeleton-wrap stack">
+        @for (i of [1, 2, 3, 4]; track i) { <div class="skeleton" style="height:40px"></div> }
+      </div>
+    } @else if (filtered().length === 0) {
+      <div class="empty">
+        <div class="empty-icon"><app-icon name="wallet" [size]="26" /></div>
+        <h3>No expenses found</h3>
+        <p>Track maintenance, utilities, taxes, salaries and other operating costs.</p>
+        @if (canManage()) {
+          <button class="btn btn-primary mt" (click)="openCreate()"><app-icon name="plus" /> Add expense</button>
+        }
+      </div>
+    } @else {
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Category</th>
+              <th>Description</th>
+              <th class="right">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (e of filtered(); track e.id) {
+              <tr>
+                <td class="nowrap muted">{{ e.spent_on | date: 'mediumDate' }}</td>
+                <td><span class="badge neutral">{{ e.category | label }}</span></td>
+                <td class="primary-cell">{{ e.description }}</td>
+                <td class="right nowrap font-medium text-danger">
+                  -{{ e.amount | money: e.currency }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>
+
+@if (showCreate()) {
+  <app-modal title="Record expense" subtitle="Operational, maintenance, or tax cost." (closed)="showCreate.set(false)">
+    <form class="form-grid" (ngSubmit)="create()" #f="ngForm">
+      <div class="field full">
+        <label for="ef-desc">Description</label>
+        <input class="input" id="ef-desc" name="description" required maxlength="500" [(ngModel)]="form.description" placeholder="Water heater replacement" />
+      </div>
+      <div class="field">
+        <label for="ef-category">Category</label>
+        <select class="input" id="ef-category" name="category" required [(ngModel)]="form.category">
+          @for (c of categories; track c) {
+            <option [value]="c">{{ c | label }}</option>
+          }
+        </select>
+      </div>
+      <div class="field">
+        <label for="ef-property">Property (optional)</label>
+        <select class="input" id="ef-property" name="propertyId" [(ngModel)]="form.propertyId">
+          <option value="">None / General</option>
+          @for (p of properties(); track p.id) {
+            <option [value]="p.id">{{ p.name }}</option>
+          }
+        </select>
+      </div>
+      <div class="field">
+        <label for="ef-amount">Amount</label>
+        <input class="input" id="ef-amount" name="amount" type="number" min="0.01" step="0.01" required [(ngModel)]="form.amount" />
+      </div>
+      <div class="field">
+        <label for="ef-currency">Currency</label>
+        <input class="input" id="ef-currency" name="currency" required minlength="3" maxlength="3" style="text-transform:uppercase" [(ngModel)]="form.currency" />
+      </div>
+      <div class="field full">
+        <label for="ef-date">Date spent</label>
+        <input class="input" id="ef-date" name="spentOn" type="date" required [(ngModel)]="form.spentOn" />
+      </div>
+      <div class="row full form-actions">
+        <button type="button" class="btn btn-ghost" (click)="showCreate.set(false)">Cancel</button>
+        <button class="btn btn-primary" id="ef-submit" [disabled]="saving() || f.invalid">
+          @if (saving()) { <span class="spinner"></span> } Save expense
+        </button>
+      </div>
+    </form>
+  </app-modal>
+}

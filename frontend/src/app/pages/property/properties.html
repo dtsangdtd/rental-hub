@@ -1,0 +1,118 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <div class="eyebrow">Rentals</div>
+      <h1>Properties</h1>
+      <p class="subtitle">{{ items().length }} properties · {{ totalUnits() }} units</p>
+    </div>
+    <div class="row">
+      <div class="search"><app-icon name="search" [size]="16" /><input class="input" id="property-search" placeholder="Search name or address…" [(ngModel)]="q" /></div>
+      @if (canManage()) {
+        <button class="btn btn-primary" id="property-new" (click)="openCreate()"><app-icon name="plus" /> New property</button>
+      }
+    </div>
+  </header>
+
+  @if (loading()) {
+    <div class="grid grid-auto">@for (i of [1, 2, 3]; track i) { <div class="card skeleton" style="height:190px"></div> }</div>
+  } @else if (filtered().length === 0) {
+    <div class="card empty">
+      <div class="empty-icon"><app-icon name="building" [size]="26" /></div>
+      <h3>No properties yet</h3>
+      <p>Add your first building to start managing units and leases.</p>
+      @if (canManage()) { <button class="btn btn-primary mt" (click)="openCreate()"><app-icon name="plus" /> New property</button> }
+    </div>
+  } @else {
+    <div class="grid grid-auto stagger">
+      @for (p of filtered(); track p.id) {
+        <a class="card hoverable prop" [routerLink]="['/properties', p.id]" [id]="'property-' + p.id">
+          <div class="row">
+            <div class="prop-icon"><app-icon name="building" /></div>
+            <div style="min-width:0;flex:1">
+              <h3 class="ellipsis">{{ p.name }}</h3>
+              <p class="faint small ellipsis">{{ p.address }}</p>
+            </div>
+          </div>
+          @if (p.description) { <p class="muted small desc">{{ p.description }}</p> }
+          <div class="row mt small">
+            <span class="muted">Occupancy</span><span class="spacer"></span>
+            <b>{{ p.occupied_count ?? 0 }}/{{ p.unit_count ?? 0 }}</b>
+          </div>
+          <div class="progress" style="margin-top:8px"><span [style.width.%]="pct(p)"></span></div>
+        </a>
+      }
+    </div>
+  }
+</div>
+
+@if (showCreate()) {
+  <app-modal title="New property" subtitle="A building or house containing rentable units." (closed)="showCreate.set(false)">
+    <form class="stack" (ngSubmit)="create()" #f="ngForm">
+      <div class="field"><label for="pf-name">Name</label><input class="input" id="pf-name" name="name" required maxlength="200" [(ngModel)]="form.name" placeholder="Sunrise Apartments" /></div>
+      <div class="field"><label for="pf-address">Address</label><input class="input" id="pf-address" name="address" required maxlength="500" [(ngModel)]="form.address" placeholder="12 Nguyen Hue, District 1, HCMC" /></div>
+      <div class="field"><label for="pf-desc">Description</label><textarea class="input" id="pf-desc" name="description" maxlength="2000" [(ngModel)]="form.description"></textarea></div>
+
+      <div class="card" style="padding:0.75rem;background:#0c1a30;border:1px solid rgba(56,189,248,0.25)">
+        <h4 style="margin:0 0 0.5rem;font-size:0.85rem;color:#38bdf8">⚡ Biểu phí dịch vụ của tòa nhà (Master Data)</h4>
+        <div class="grid grid-2" style="gap:0.5rem">
+          <div class="field"><label>Giá điện (₫/số)</label><input class="input" type="number" name="electricityRate" [(ngModel)]="form.electricityRate" /></div>
+          <div class="field"><label>Giá nước (₫/khối)</label><input class="input" type="number" name="waterRate" [(ngModel)]="form.waterRate" /></div>
+          <div class="field"><label>Giá internet (₫/phòng)</label><input class="input" type="number" name="internetRate" [(ngModel)]="form.internetRate" /></div>
+          <div class="field"><label>Giá vệ sinh (₫/người)</label><input class="input" type="number" name="cleaningRate" [(ngModel)]="form.cleaningRate" /></div>
+          <div class="field full"><label>Giá giữ xe máy (₫/xe)</label><input class="input" type="number" name="parkingRate" [(ngModel)]="form.parkingRate" /></div>
+        </div>
+      </div>
+
+      <div class="card" style="padding:0.75rem;background:#0f172a;border:1px solid rgba(255,255,255,0.15)">
+        <h4 style="margin:0 0 0.5rem;font-size:0.85rem;color:#f59e0b">🏦 Tài khoản ngân hàng nhận thanh toán (Tự động điền hóa đơn)</h4>
+        <div class="field"><label>Tên ngân hàng</label><input class="input" name="bankName" [(ngModel)]="form.bankName" placeholder="VD: Vietcombank, MB Bank, Techcombank..." /></div>
+        <div class="grid grid-2" style="gap:0.5rem">
+          <div class="field"><label>Số tài khoản (STK)</label><input class="input" name="bankAccountNumber" [(ngModel)]="form.bankAccountNumber" placeholder="VD: 0123456789" /></div>
+          <div class="field"><label>Tên chủ tài khoản (CTK)</label><input class="input" name="bankAccountName" [(ngModel)]="form.bankAccountName" placeholder="VD: NGUYEN VAN A" /></div>
+        </div>
+
+        <div class="field" style="margin-top:0.5rem">
+          <label style="display:flex;align-items:center;justify-content:space-between">
+            <span>Ảnh mã QR chuyển khoản (VietQR / Ngân hàng)</span>
+            <span class="faint small">Tự động hiện trên hóa đơn PDF</span>
+          </label>
+          <div style="display:flex;gap:12px;align-items:center;margin-top:4px">
+            <input type="file" #qrFileInput accept="image/*" (change)="onQrFileSelected($event)" style="display:none" />
+            <button type="button" class="btn btn-secondary btn-sm" [disabled]="isUploadingQr()" (click)="qrFileInput.click()">
+              <app-icon name="plus" [size]="14" /> {{ form.bankQrCode ? 'Đổi ảnh mã QR' : 'Tải lên ảnh mã QR' }}
+            </button>
+            @if (form.bankQrCode && !isUploadingQr()) {
+              <button type="button" class="btn btn-ghost btn-sm text-danger" (click)="removeQrCode()">
+                Xóa mã QR
+              </button>
+            }
+          </div>
+
+          @if (isUploadingQr()) {
+            <div class="upload-progress-box">
+              <div class="progress-bar-head">
+                <span class="progress-title"><span class="spinner-sm"></span> Đang tải & xử lý ảnh mã QR...</span>
+                <span class="progress-pct">{{ uploadProgress() }}%</span>
+              </div>
+              <div class="progress-track">
+                <div class="progress-fill" [style.width.%]="uploadProgress()"></div>
+              </div>
+            </div>
+          }
+
+          @if (form.bankQrCode && !isUploadingQr()) {
+            <div style="margin-top:8px;display:flex;align-items:center;gap:10px;padding:6px;background:rgba(255,255,255,0.04);border-radius:6px;width:fit-content">
+              <img [src]="form.bankQrCode" alt="Mã QR preview" style="width:68px;height:68px;object-fit:contain;background:#fff;border-radius:4px;padding:2px" />
+              <span class="faint small" style="color:#22c55e">✓ Đã tải ảnh QR thành công</span>
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="row" style="justify-content:flex-end">
+        <button type="button" class="btn btn-ghost" (click)="showCreate.set(false)">Cancel</button>
+        <button class="btn btn-primary" id="pf-submit" [disabled]="saving() || f.invalid">@if (saving()) { <span class="spinner"></span> } Create</button>
+      </div>
+    </form>
+  </app-modal>
+}

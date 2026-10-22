@@ -1,0 +1,19 @@
+.skeleton-wrap {
+  padding: 20px;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 13px;
+  background: var(--grad-primary);
+  color: #fff;
+}
+
+.form-actions {
+  justify-content: flex-end;
+}

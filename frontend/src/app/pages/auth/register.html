@@ -1,0 +1,46 @@
+<div class="auth">
+  <section class="hero">
+    <img src="images/auth-hero.jpg" alt="Modern apartment building at twilight" />
+    <div class="hero-content">
+      <div class="eyebrow">Get started in seconds</div>
+      <h2>Landlord or tenant — <span>we've got you.</span></h2>
+      <p class="muted">Landlords manage buildings, leases and finances. Tenants see their invoices and shop for their home.</p>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="form-card">
+      <div class="brand"><span class="logo"><app-icon name="home" [stroke]="2.4" /></span><span>Rental<b>Hub</b></span></div>
+      <h1>Create account</h1>
+      <p class="muted">Choose how you'll use RentalHub.</p>
+
+      <form (ngSubmit)="submit()" #f="ngForm">
+        <div class="roles">
+          <button type="button" class="role" id="register-role-landlord" [class.active]="role() === 'landlord'" (click)="role.set('landlord')">
+            <app-icon name="building" /><strong>Landlord</strong><span class="muted small">Manage properties</span>
+          </button>
+          <button type="button" class="role" id="register-role-tenant" [class.active]="role() === 'tenant'" (click)="role.set('tenant')">
+            <app-icon name="home" /><strong>Tenant</strong><span class="muted small">Pay &amp; shop</span>
+          </button>
+        </div>
+        <div class="field">
+          <label for="reg-name">Full name</label>
+          <input class="input" id="reg-name" name="fullName" required maxlength="200" [(ngModel)]="fullName" placeholder="Nguyen Van A" />
+        </div>
+        <div class="field">
+          <label for="reg-email">Email</label>
+          <input class="input" id="reg-email" name="email" type="email" required email [(ngModel)]="email" placeholder="you@example.com" />
+        </div>
+        <div class="field">
+          <label for="reg-password">Password</label>
+          <input class="input" id="reg-password" name="password" type="password" required minlength="8" [(ngModel)]="password" placeholder="At least 8 characters" />
+        </div>
+        @if (error()) { <div class="alert danger">{{ error() }}</div> }
+        <button class="btn btn-primary btn-block submit-btn" id="register-submit" type="submit" [disabled]="loading() || f.invalid">
+          @if (loading()) { <span class="spinner"></span> } Create account
+        </button>
+      </form>
+      <p class="footer-link">Already have an account? <a routerLink="/login" id="go-login">Sign in</a></p>
+    </div>
+  </section>
+</div>
