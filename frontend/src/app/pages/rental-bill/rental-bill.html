@@ -21,16 +21,17 @@
         </svg>
         Mặc định
       </button>
-      <button class="btn btn-success" (click)="saveMeterReadings()" title="Lưu số điện nước của phòng vào lịch sử">
+      <button class="btn btn-success" (click)="saveMeterReadings(true)" [disabled]="isSyncingInvoice"
+        title="Lưu số điện nước và đồng bộ tạo/cập nhật hóa đơn trong Kế toán">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
           <polyline points="17 21 17 13 7 13 7 21" />
           <polyline points="7 3 7 8 15 8" />
         </svg>
-        Lưu chỉ số phòng
+        {{ isSyncingInvoice ? 'Đang lưu...' : 'Lưu & Tạo Hóa Đơn' }}
       </button>
-      <button class="btn btn-secondary" (click)="printBill()"
-        title="In trực tiếp ra máy in hoặc Lưu dưới dạng PDF chuẩn">
+      <button class="btn btn-secondary" (click)="printBill()" [disabled]="isSyncingInvoice"
+        title="Đồng bộ hóa đơn và In ra máy in / Lưu PDF">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <polyline points="6 9 6 2 18 2 18 9" />
           <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
@@ -38,8 +39,8 @@
         </svg>
         In / Lưu PDF
       </button>
-      <button class="btn btn-primary" (click)="downloadPdf()" [disabled]="isExporting"
-        title="Tải file PDF hóa đơn về máy">
+      <button class="btn btn-primary" (click)="downloadPdf()" [disabled]="isExporting || isSyncingInvoice"
+        title="Đồng bộ hóa đơn và Tải file PDF về máy">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
           <polyline points="7 10 12 15 17 10" />
@@ -54,6 +55,27 @@
   <div *ngIf="savedMessage" class="saved-alert no-print">
     {{ savedMessage }}
   </div>
+
+  <!-- Realtime Accounting Invoice Status Pill -->
+  @if (currentInvoice) {
+    <div class="invoice-status-pill no-print" [class.is-paid]="currentInvoice.status === 'paid'" [class.is-unpaid]="currentInvoice.status === 'unpaid'">
+      <div class="status-left">
+        <span class="status-badge" [class.badge-paid]="currentInvoice.status === 'paid'" [class.badge-unpaid]="currentInvoice.status === 'unpaid'">
+          {{ currentInvoice.status === 'paid' ? '✓ ĐÃ THANH TOÁN' : '⏳ CHƯA THANH TOÁN' }}
+        </span>
+        <span class="inv-number">Hóa đơn Kế toán: <strong>{{ currentInvoice.number }}</strong></span>
+        <span class="inv-amount">Tổng tiền: <strong>{{ currentInvoice.amount | number }} ₫</strong></span>
+        @if (currentInvoice.amount_paid > 0 && currentInvoice.status !== 'paid') {
+          <span class="inv-paid">(Đã thu: {{ currentInvoice.amount_paid | number }} ₫)</span>
+        }
+      </div>
+      <div class="status-actions">
+        <a [routerLink]="['/invoices', currentInvoice.id]" target="_blank" class="status-link">
+          Xem & Ghi nhận thu tiền trong Kế toán →
+        </a>
+      </div>
+    </div>
+  }
 
   <!-- Responsive View Mode & Zoom Toolbar -->
   <div class="view-mode-bar no-print">

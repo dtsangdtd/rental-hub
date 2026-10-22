@@ -16,7 +16,7 @@ import {
   transaction,
   validate,
 } from '@rental/common';
-import { createInvoice } from './invoices';
+import { createInvoice, syncBillInvoice } from './invoices';
 import { generateRentInvoices } from './consumers';
 
 const uuid = z.string().uuid();
@@ -30,6 +30,16 @@ const manualInvoiceSchema = z.object({
   amount: money,
   currency: z.string().length(3).toUpperCase().default('VND'),
   dueDate: isoDate,
+});
+const syncBillSchema = z.object({
+  leaseId: uuid.optional().nullable(),
+  customerId: uuid.optional().nullable(),
+  period: period,
+  description: z.string().min(1).max(500),
+  amount: money,
+  currency: z.string().length(3).toUpperCase().default('VND'),
+  dueDate: isoDate.optional().nullable(),
+  metadata: z.record(z.unknown()).optional(),
 });
 const paymentSchema = z.object({
   amount: money,
@@ -47,6 +57,7 @@ const expenseSchema = z.object({
 const invoiceQuery = z.object({
   status: z.enum(['unpaid', 'partial', 'paid', 'void']).optional(),
   period: period.optional(),
+  referenceId: uuid.optional(),
 });
 const reportQuery = z.object({ from: isoDate, to: isoDate });
 
@@ -75,6 +86,7 @@ export function buildRouter(deps: { pool: Pool; bus: EventBus }): Router {
       const where = [scope.sql];
       if (q.status) where.push(`status = $${params.push(q.status)}`);
       if (q.period) where.push(`period = $${params.push(q.period)}`);
+      if (q.referenceId) where.push(`reference_id = $${params.push(q.referenceId)}`);
       const { rows } = await pool.query(
         `SELECT * FROM invoices WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT 500`,
         params,
@@ -125,6 +137,27 @@ export function buildRouter(deps: { pool: Pool; bus: EventBus }): Router {
       const user = currentUser(req);
       const result = await generateRentInvoices(pool, p, user.id);
       res.json(result);
+    }),
+  );
+
+  router.post(
+    '/invoices/sync-bill',
+    finance,
+    asyncHandler(async (req, res) => {
+      const b = validate(syncBillSchema, req.body);
+      const user = currentUser(req);
+      const inv = await syncBillInvoice(pool, {
+        ownerId: user.id,
+        leaseId: b.leaseId,
+        customerId: b.customerId,
+        period: b.period,
+        description: b.description,
+        amount: b.amount,
+        currency: b.currency,
+        dueDate: b.dueDate,
+        metadata: b.metadata,
+      });
+      res.status(200).json(inv);
     }),
   );
 

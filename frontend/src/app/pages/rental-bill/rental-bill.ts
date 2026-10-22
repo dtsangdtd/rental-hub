@@ -6,7 +6,7 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { Api } from '../../core/api';
 import { MeterReadingService, UnitMeterReading } from '../../core/meter-reading.service';
-import { InvoiceDetail, Lease, Property, Tenant, UnitOccupant } from '../../core/models';
+import { Invoice, InvoiceDetail, Lease, Property, Tenant, UnitOccupant } from '../../core/models';
 import { vietnameseCurrencyToWords } from '../../core/vietnamese-currency';
 import { readFileAsDataUrl } from '../../core/image-util';
 
@@ -61,6 +61,9 @@ export class RentalBillPage implements OnInit {
   occupants: UnitOccupant[] = [];
   isExporting = false;
   savedMessage = '';
+
+  currentInvoice: Invoice | null = null;
+  isSyncingInvoice = false;
 
   // Responsive view mode and zoom controls
   viewMode: 'split' | 'editor' | 'preview' = 'split';
@@ -381,6 +384,7 @@ export class RentalBillPage implements OnInit {
 
     // Automatically check and load meter readings history for this unit!
     this.syncSavedReadingsForCurrentPeriod();
+    void this.checkInvoiceStatus();
 
     this.cdr.detectChanges();
   }
@@ -462,6 +466,7 @@ export class RentalBillPage implements OnInit {
 
   onPeriodChange(): void {
     this.syncSavedReadingsForCurrentPeriod();
+    void this.checkInvoiceStatus();
     this.cdr.detectChanges();
   }
 
@@ -521,6 +526,7 @@ export class RentalBillPage implements OnInit {
     this.month = nextMonth;
     this.year = nextYear;
     this.syncSavedReadingsForCurrentPeriod();
+    void this.checkInvoiceStatus();
     this.savedMessage = `✓ Đã chuyển sang Tháng ${this.month}/${this.year}. Số cũ đã được tự động cập nhật từ số mới kỳ trước.`;
     setTimeout(() => {
       this.savedMessage = '';
@@ -529,8 +535,99 @@ export class RentalBillPage implements OnInit {
     this.cdr.detectChanges();
   }
 
-  /** Save the current meter readings for this room */
-  saveMeterReadings(showFeedback = true): void {
+  /** Check if an accounting invoice already exists for this room and period */
+  async checkInvoiceStatus(): Promise<void> {
+    const period = `${this.year}-${String(this.month).padStart(2, '0')}`;
+    if (this.selectedLease) {
+      try {
+        const res = await this.api.get<{ items: Invoice[] }>('/accounting/invoices', {
+          referenceId: this.selectedLease.id,
+          period,
+        });
+        this.currentInvoice = res.items?.[0] || null;
+      } catch {
+        this.currentInvoice = null;
+      }
+    } else {
+      this.currentInvoice = null;
+    }
+    this.cdr.detectChanges();
+  }
+
+  /**
+   * Sync/Create invoice in accounting-service.
+   * If an unpaid invoice exists, updates amount and items breakdown.
+   * If already paid, preserves payment and updates metadata.
+   */
+  async syncToInvoices(showFeedback = true): Promise<Invoice | null> {
+    if (this.grandTotal <= 0) return null;
+    this.isSyncingInvoice = true;
+    this.cdr.detectChanges();
+
+    try {
+      const period = `${this.year}-${String(this.month).padStart(2, '0')}`;
+      const roomTitle = this.selectedLease?.unit_name || this.address || 'Phòng';
+      const propertyTitle = this.selectedProperty?.name || this.selectedLease?.property_name || '';
+      const description = `${roomTitle}${propertyTitle ? ' (' + propertyTitle + ')' : ''} — Tiền phòng & dịch vụ T${this.month}/${this.year}`;
+
+      const payload = {
+        leaseId: this.selectedLease?.id || null,
+        customerId: this.selectedLease?.tenant_id || this.selectedTenantId || null,
+        period,
+        description,
+        amount: this.grandTotal,
+        currency: 'VND',
+        dueDate: this.selectedLease?.due_day ? `${period}-${String(this.selectedLease.due_day).padStart(2, '0')}` : undefined,
+        metadata: {
+          roomName: roomTitle,
+          propertyName: propertyTitle,
+          customerName: this.customerName,
+          customerPhone: this.customerPhone,
+          bankInfo: this.paymentInfo,
+          items: this.items.map((it) => ({
+            id: it.id,
+            name: it.name,
+            isMeter: it.isMeter,
+            meterStart: it.meterStart,
+            meterEnd: it.meterEnd,
+            quantity: it.quantity,
+            unit: it.unit,
+            unitPrice: it.unitPrice,
+            total: it.total,
+          })),
+          grandTotal: this.grandTotal,
+          syncedAt: new Date().toISOString(),
+        },
+      };
+
+      const inv = await this.api.post<Invoice>('/accounting/invoices/sync-bill', payload);
+      this.currentInvoice = inv;
+
+      if (showFeedback) {
+        const statusText = inv.status === 'paid' ? 'ĐÃ THANH TOÁN' : 'CHƯA THANH TOÁN';
+        this.savedMessage = `✓ Đã lưu hóa đơn #${inv.number} vào Kế toán (${statusText} — ${this.grandTotal.toLocaleString('vi-VN')} ₫)`;
+        setTimeout(() => {
+          if (this.savedMessage.includes(inv.number)) this.savedMessage = '';
+          this.cdr.detectChanges();
+        }, 6000);
+      }
+      return inv;
+    } catch (err) {
+      console.error('Lỗi đồng bộ hóa đơn sang Kế toán', err);
+      return null;
+    } finally {
+      this.isSyncingInvoice = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  async saveAndSyncBill(): Promise<void> {
+    await this.saveMeterReadings(false);
+    await this.syncToInvoices(true);
+  }
+
+  /** Save the current meter readings for this room & sync invoice */
+  async saveMeterReadings(showFeedback = true): Promise<void> {
     const electric = this.items.find((i) => i.name.toLowerCase().includes('điện'));
     const water = this.items.find((i) => i.name.toLowerCase().includes('nước'));
 
@@ -555,8 +652,11 @@ export class RentalBillPage implements OnInit {
       savedAt: new Date().toISOString(),
     });
 
+    const inv = await this.syncToInvoices(false);
+
     if (showFeedback) {
-      this.savedMessage = `✓ Đã lưu chỉ số phòng ${roomTitle} kỳ T${this.month}/${this.year}: Điện (${eStart} → ${eEnd}), Nước (${wStart} → ${wEnd}). Lần sau số cũ sẽ tự động mang sang!`;
+      const invInfo = inv ? ` · Hóa đơn #${inv.number} (${inv.status === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'})` : '';
+      this.savedMessage = `✓ Đã lưu chỉ số phòng ${roomTitle} kỳ T${this.month}/${this.year}${invInfo}`;
       setTimeout(() => {
         this.savedMessage = '';
         this.cdr.detectChanges();
@@ -585,12 +685,14 @@ export class RentalBillPage implements OnInit {
       this.savedMessage = '';
       this.cdr.detectChanges();
     }, 4000);
+    void this.checkInvoiceStatus();
     this.cdr.detectChanges();
   }
 
   async loadFromInvoice(invoiceId: string): Promise<void> {
     try {
       const inv = await this.api.get<InvoiceDetail>(`/accounting/invoices/${invoiceId}`);
+      this.currentInvoice = inv;
       if (inv.period) {
         const parts = inv.period.split('-');
         if (parts.length === 2) {
@@ -670,14 +772,16 @@ export class RentalBillPage implements OnInit {
     this.cdr.detectChanges();
   }
 
-  printBill(): void {
-    this.saveMeterReadings(false);
+  async printBill(): Promise<void> {
+    await this.syncToInvoices(false);
+    void this.saveMeterReadings(false);
     window.print();
   }
 
   async downloadPdf(): Promise<void> {
     if (!this.billSheet?.nativeElement) return;
-    this.saveMeterReadings(false);
+    await this.syncToInvoices(false);
+    void this.saveMeterReadings(false);
     this.isExporting = true;
     this.cdr.detectChanges();
 
