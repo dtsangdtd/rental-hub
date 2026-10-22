@@ -22,15 +22,32 @@
       }
     </nav>
 
-    <div class="me">
-      <div class="avatar">{{ initials() }}</div>
-      <div class="who">
-        <div class="name">{{ auth.user()?.fullName }}</div>
-        <div class="email">{{ auth.user()?.email }}</div>
+    <div class="sidebar-footer">
+      <div class="me">
+        <div class="avatar">{{ initials() }}</div>
+        <div class="who">
+          <div class="name">{{ auth.user()?.fullName }}</div>
+          <div class="email">{{ auth.user()?.email }}</div>
+        </div>
+        <button class="btn btn-ghost btn-icon" id="logout-btn" title="Sign out" (click)="auth.logout()">
+          <app-icon name="logout" [size]="17" />
+        </button>
       </div>
-      <button class="btn btn-ghost btn-icon" id="logout-btn" title="Sign out" (click)="auth.logout()">
-        <app-icon name="logout" [size]="17" />
-      </button>
+
+      <div class="version-tag">
+        <span
+          class="v-text"
+          (click)="versionService.checkForUpdates(true)"
+          [title]="'Bấm để kiểm tra bản cập nhật mới (Bản hiện tại: v' + versionService.currentVersion().version + ')'"
+        >
+          v{{ versionService.currentVersion().version }}
+          @if (versionService.isChecking()) {
+            <span class="checking-spinner">🔄</span>
+          } @else if (versionService.hasNewVersion()) {
+            <span class="update-dot" title="Có bản mới!"></span>
+          }
+        </span>
+      </div>
     </div>
   </aside>
 
@@ -41,6 +58,14 @@
       <button class="btn btn-ghost btn-icon menu-btn" id="menu-toggle" (click)="menuOpen.set(!menuOpen())" aria-label="Menu">
         <app-icon name="menu" />
       </button>
+
+      @if (versionService.hasNewVersion()) {
+        <button type="button" class="topbar-update-badge" (click)="versionService.openDialog()" title="Đã có bản cập nhật mới! Bấm để xem và cập nhật">
+          <span class="badge-pulse"></span>
+          <span>Bản mới v{{ versionService.latestVersion()?.version }}</span>
+        </button>
+      }
+
       <div class="spacer"></div>
       @if (auth.role(); as role) { <app-status [value]="role" /> }
       <a routerLink="/cart" class="btn btn-icon cart-btn" id="topbar-cart" aria-label="Cart">

@@ -4,6 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs';
 import { AuthStore } from '../core/auth.store';
 import { CartService } from '../core/cart.service';
+import { VersionCheckService } from '../core/version-check.service';
 import { NAV } from '../nav';
 import { Icon } from '../shared/icon';
 import { StatusBadge } from '../shared/format';
@@ -18,6 +19,7 @@ import { StatusBadge } from '../shared/format';
 export class Shell {
   protected readonly auth = inject(AuthStore);
   protected readonly cart = inject(CartService);
+  protected readonly versionService = inject(VersionCheckService);
   private readonly router = inject(Router);
 
   protected readonly menuOpen = signal(false);
