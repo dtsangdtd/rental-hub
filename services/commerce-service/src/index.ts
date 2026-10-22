@@ -4,6 +4,7 @@ import {
   createLogger,
   createPool,
   env,
+  envNumber,
   errorHandler,
   EventBus,
   requireAuth,
@@ -16,8 +17,8 @@ const SERVICE = 'commerce-service';
 
 async function main() {
   const logger = createLogger(SERVICE);
-  const port = Number(process.env['COMMERCE_PORT'] ?? env('PORT', '4004'));
-  const pool = createPool(process.env['COMMERCE_DATABASE_URL'] ?? env('DATABASE_URL', 'postgres://rental:rental@localhost:5432/commerce_db'));
+  const port = envNumber(['COMMERCE_PORT', 'PORT'], 4004);
+  const pool = createPool(env(['COMMERCE_DATABASE_URL', 'DATABASE_URL'], 'postgres://rental:rental@localhost:5432/commerce_db'));
   const bus = new EventBus(env('RABBITMQ_URL', 'amqp://rental:rental@localhost:5672'), SERVICE, logger);
   const jwtSecret = env('JWT_SECRET', 'dev-secret-change-me');
 

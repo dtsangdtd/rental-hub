@@ -1,13 +1,13 @@
 import path from 'path';
-import { createApp, createLogger, createPool, env, errorHandler, EventBus, runMigrations } from '@rental/common';
+import { createApp, createLogger, createPool, env, envNumber, errorHandler, EventBus, runMigrations } from '@rental/common';
 import { buildRouter, seedAdmin } from './routes';
 
 const SERVICE = 'auth-service';
 
 async function main() {
   const logger = createLogger(SERVICE);
-  const port = Number(process.env['AUTH_PORT'] ?? env('PORT', '4001'));
-  const pool = createPool(process.env['AUTH_DATABASE_URL'] ?? env('DATABASE_URL', 'postgres://rental:rental@localhost:5432/auth_db'));
+  const port = envNumber(['AUTH_PORT', 'PORT'], 4001);
+  const pool = createPool(env(['AUTH_DATABASE_URL', 'DATABASE_URL'], 'postgres://rental:rental@localhost:5432/auth_db'));
   const bus = new EventBus(env('RABBITMQ_URL', 'amqp://rental:rental@localhost:5672'), SERVICE, logger);
   const jwtSecret = env('JWT_SECRET', 'dev-secret-change-me');
 

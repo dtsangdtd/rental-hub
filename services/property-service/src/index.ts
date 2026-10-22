@@ -4,6 +4,7 @@ import {
   createLogger,
   createPool,
   env,
+  envNumber,
   errorHandler,
   EventBus,
   requireAuth,
@@ -15,8 +16,8 @@ const SERVICE = 'property-service';
 
 async function main() {
   const logger = createLogger(SERVICE);
-  const port = Number(process.env['PROPERTY_PORT'] ?? env('PORT', '4002'));
-  const pool = createPool(process.env['PROPERTY_DATABASE_URL'] ?? env('DATABASE_URL', 'postgres://rental:rental@localhost:5432/property_db'));
+  const port = envNumber(['PROPERTY_PORT', 'PORT'], 4002);
+  const pool = createPool(env(['PROPERTY_DATABASE_URL', 'DATABASE_URL'], 'postgres://rental:rental@localhost:5432/property_db'));
   const bus = new EventBus(env('RABBITMQ_URL', 'amqp://rental:rental@localhost:5672'), SERVICE, logger);
   const jwtSecret = env('JWT_SECRET', 'dev-secret-change-me');
 

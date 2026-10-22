@@ -41,15 +41,35 @@ function loadDotEnv(): void {
 loadDotEnv();
 
 /**
- * Read an environment variable. Defaults are for LOCAL DEV ONLY;
- * docker-compose / production must always set real values.
+ * Read an environment variable. If an array of names is provided, checks each in order
+ * and returns the first defined non-empty value.
+ * Defaults are for LOCAL DEV ONLY; docker-compose / production must always set real values.
  */
-export function env(name: string, fallback?: string): string {
-  const value = process.env[name] ?? fallback;
-  if (value === undefined || value === '') {
-    throw new Error(`Missing required environment variable: ${name}`);
+export function env(nameOrNames: string | string[], fallback?: string): string {
+  const names = Array.isArray(nameOrNames) ? nameOrNames : [nameOrNames];
+  for (const name of names) {
+    const value = process.env[name];
+    if (value !== undefined && value !== '') {
+      return value;
+    }
   }
-  return value;
+  if (fallback !== undefined) {
+    return fallback;
+  }
+  throw new Error(`Missing required environment variable: ${names.join(' or ')}`);
+}
+
+/**
+ * Read an environment variable as a number with a fallback.
+ */
+export function envNumber(nameOrNames: string | string[], fallback: number): number {
+  try {
+    const val = env(nameOrNames, String(fallback));
+    const num = Number(val);
+    return isNaN(num) ? fallback : num;
+  } catch {
+    return fallback;
+  }
 }
 
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

@@ -1,6 +1,6 @@
 import cors from 'cors';
 import { createProxyMiddleware } from 'http-proxy-middleware';
-import { createApp, createLogger, env } from '@rental/common';
+import { createApp, createLogger, env, envNumber } from '@rental/common';
 
 const SERVICE = 'api-gateway';
 
@@ -18,7 +18,7 @@ const routes: Record<string, string> = {
 
 function main() {
   const logger = createLogger(SERVICE);
-  const port = Number(process.env['GATEWAY_PORT'] ?? env('PORT', '8080'));
+  const port = envNumber(['GATEWAY_PORT', 'PORT'], 8080);
 
   // json:false -> do NOT parse bodies; they are streamed to the services.
   const app = createApp(SERVICE, { json: false });
