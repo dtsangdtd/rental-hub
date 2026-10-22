@@ -1,9 +1,13 @@
 <div class="page">
   <header class="page-header">
-    <div><div class="eyebrow">Rentals</div><h1>Leases</h1><p class="subtitle">{{ activeCount() }} active · creating a lease auto-issues deposit &amp; first-month invoices</p></div>
+    <div>
+      <div class="eyebrow">Rentals · Quản lý nhà trọ</div>
+      <h1>Leases · Hợp đồng cho thuê</h1>
+      <p class="subtitle">{{ activeCount() }} hợp đồng đang hiệu lực · Tự động phát hành hóa đơn tiền cọc &amp; tiền thuê</p>
+    </div>
     <div class="row">
       <div class="chips">@for (s of filters; track s) { <button class="chip" [class.active]="filter() === s" (click)="filter.set(s)">{{ s }}</button> }</div>
-      @if (canManage()) { <button class="btn btn-primary" id="lease-new" (click)="openCreate()"><app-icon name="plus" /> New lease</button> }
+      @if (canManage()) { <button class="btn btn-primary" id="lease-new" (click)="openCreate()"><app-icon name="plus" /> Tạo hợp đồng mới</button> }
     </div>
   </header>
 
@@ -11,10 +15,10 @@
     @if (loading()) {
       <div class="skeleton-wrap stack">@for (i of [1, 2, 3]; track i) { <div class="skeleton" style="height:40px"></div> }</div>
     } @else if (filtered().length === 0) {
-      <div class="empty"><div class="empty-icon"><app-icon name="key" [size]="26" /></div><h3>No leases</h3><p>Create a lease to start billing a tenant.</p></div>
+      <div class="empty"><div class="empty-icon"><app-icon name="key" [size]="26" /></div><h3>Chưa có hợp đồng nào</h3><p>Tạo hợp đồng cho thuê phòng để bắt đầu tính tiền và xuất hóa đơn.</p></div>
     } @else {
       <div class="table-wrap"><table class="table">
-        <thead><tr><th>Tenant</th><th>Unit</th><th>Period</th><th class="right">Rent / month</th><th class="right">Deposit</th><th>Due day</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Khách thuê</th><th>Phòng / Tòa nhà</th><th>Thời hạn hợp đồng</th><th class="right">Giá thuê / tháng</th><th class="right">Tiền cọc</th><th>Ngày thu</th><th>Trạng thái</th><th></th></tr></thead>
         <tbody>
           @for (l of filtered(); track l.id) {
             <tr>
@@ -57,36 +61,36 @@
 </div>
 
 @if (showCreate()) {
-  <app-modal title="New lease" subtitle="Only vacant units can be leased." [width]="640" (closed)="showCreate.set(false)">
+  <app-modal title="Tạo hợp đồng cho thuê mới" subtitle="Chỉ những phòng đang còn trống mới có thể tạo hợp đồng thuê." [width]="640" (closed)="showCreate.set(false)">
     <form class="form-grid" (ngSubmit)="create()" #f="ngForm">
-      <div class="field"><label for="lf-property">Property</label>
+      <div class="field"><label for="lf-property">Tòa nhà</label>
         <select class="input" id="lf-property" name="propertyId" required [ngModel]="form.propertyId" (ngModelChange)="selectProperty($event)">
-          <option value="" disabled>Select property…</option>
+          <option value="" disabled>Chọn tòa nhà…</option>
           @for (p of properties(); track p.id) { <option [value]="p.id">{{ p.name }}</option> }
         </select>
       </div>
-      <div class="field"><label for="lf-unit">Unit</label>
+      <div class="field"><label for="lf-unit">Phòng thuê</label>
         <select class="input" id="lf-unit" name="unitId" required [ngModel]="form.unitId" (ngModelChange)="selectUnit($event)" [disabled]="!form.propertyId">
-          <option value="" disabled>{{ vacantUnits().length ? 'Select unit…' : 'No vacant units' }}</option>
+          <option value="" disabled>{{ vacantUnits().length ? 'Chọn phòng…' : 'Hết phòng trống' }}</option>
           @for (u of vacantUnits(); track u.id) { <option [value]="u.id">{{ u.name }} · {{ u.base_rent | money }}</option> }
         </select>
       </div>
-      <div class="field full"><label for="lf-tenant">Tenant</label>
+      <div class="field full"><label for="lf-tenant">Khách thuê đứng tên</label>
         <select class="input" id="lf-tenant" name="tenantId" required [(ngModel)]="form.tenantId">
-          <option value="" disabled>Select tenant…</option>
+          <option value="" disabled>Chọn khách thuê…</option>
           @for (t of tenants(); track t.id) { <option [value]="t.id">{{ t.full_name }}{{ t.phone ? ' · ' + t.phone : '' }}</option> }
         </select>
-        @if (tenants().length === 0) { <span class="hint">Create a tenant first on the Tenants page.</span> }
+        @if (tenants().length === 0) { <span class="hint">Hãy tạo hồ sơ khách thuê trước ở trang Khách thuê.</span> }
       </div>
-      <div class="field"><label for="lf-start">Start date</label><input class="input" id="lf-start" name="startDate" type="date" required [(ngModel)]="form.startDate" /></div>
-      <div class="field"><label for="lf-end">End date</label><input class="input" id="lf-end" name="endDate" type="date" [min]="form.startDate" [(ngModel)]="form.endDate" /></div>
-      <div class="field"><label for="lf-rent">Monthly rent</label><input class="input" id="lf-rent" name="monthlyRent" type="number" min="0" step="0.01" [(ngModel)]="form.monthlyRent" placeholder="Defaults to unit base rent" /></div>
-      <div class="field"><label for="lf-deposit">Deposit</label><input class="input" id="lf-deposit" name="deposit" type="number" min="0" step="0.01" [(ngModel)]="form.deposit" /></div>
-      <div class="field"><label for="lf-currency">Currency</label><input class="input" id="lf-currency" name="currency" required minlength="3" maxlength="3" [(ngModel)]="form.currency" style="text-transform:uppercase" /></div>
-      <div class="field"><label for="lf-due">Due day of month</label><input class="input" id="lf-due" name="dueDay" type="number" min="1" max="28" required [(ngModel)]="form.dueDay" /></div>
+      <div class="field"><label for="lf-start">Ngày bắt đầu</label><input class="input" id="lf-start" name="startDate" type="date" required [(ngModel)]="form.startDate" /></div>
+      <div class="field"><label for="lf-end">Ngày kết thúc</label><input class="input" id="lf-end" name="endDate" type="date" [min]="form.startDate" [(ngModel)]="form.endDate" /></div>
+      <div class="field"><label for="lf-rent">Tiền thuê / tháng</label><input class="input" id="lf-rent" name="monthlyRent" type="number" min="0" step="0.01" [(ngModel)]="form.monthlyRent" placeholder="Mặc định theo giá gốc của phòng" /></div>
+      <div class="field"><label for="lf-deposit">Tiền đặt cọc</label><input class="input" id="lf-deposit" name="deposit" type="number" min="0" step="0.01" [(ngModel)]="form.deposit" /></div>
+      <div class="field"><label for="lf-currency">Loại tiền tệ</label><input class="input" id="lf-currency" name="currency" required minlength="3" maxlength="3" [(ngModel)]="form.currency" style="text-transform:uppercase" /></div>
+      <div class="field"><label for="lf-due">Ngày thu tiền hàng tháng</label><input class="input" id="lf-due" name="dueDay" type="number" min="1" max="28" required [(ngModel)]="form.dueDay" /></div>
       <div class="row full form-actions">
-        <button type="button" class="btn btn-ghost" (click)="showCreate.set(false)">Cancel</button>
-        <button class="btn btn-primary" id="lf-submit" [disabled]="saving() || f.invalid">@if (saving()) { <span class="spinner"></span> } Create lease</button>
+        <button type="button" class="btn btn-ghost" (click)="showCreate.set(false)">Hủy</button>
+        <button class="btn btn-primary" id="lf-submit" [disabled]="saving() || f.invalid">@if (saving()) { <span class="spinner"></span> } Tạo hợp đồng</button>
       </div>
     </form>
   </app-modal>

@@ -1,17 +1,17 @@
 <div class="page">
-  <a routerLink="/properties" class="btn btn-ghost btn-sm mb"><app-icon name="back" [size]="15" /> Properties</a>
+  <a routerLink="/properties" class="btn btn-ghost btn-sm mb"><app-icon name="back" [size]="15" /> Danh sách tòa nhà</a>
 
   @if (property(); as p) {
     <header class="page-header">
       <div>
-        <div class="eyebrow">Property</div>
+        <div class="eyebrow">Tòa nhà / Cơ sở cho thuê</div>
         <h1>{{ p.name }}</h1>
         <p class="subtitle">{{ p.address }}</p>
       </div>
       <div class="row">
         @if (canManage()) {
           <button class="btn btn-secondary" (click)="openTariffModal()"><app-icon name="receipt" [size]="16" /> Biểu phí dịch vụ</button>
-          <button class="btn btn-primary" id="unit-new" (click)="openUnit(null)"><app-icon name="plus" /> Add unit</button>
+          <button class="btn btn-primary" id="unit-new" (click)="openUnit(null)"><app-icon name="plus" /> Thêm phòng mới</button>
         }
       </div>
     </header>

@@ -1,14 +1,14 @@
 <div class="page">
   <header class="page-header">
     <div>
-      <div class="eyebrow">Rentals</div>
-      <h1>Properties</h1>
-      <p class="subtitle">{{ items().length }} properties · {{ totalUnits() }} units</p>
+      <div class="eyebrow">Rentals · Quản lý nhà trọ</div>
+      <h1>Properties · Danh sách tòa nhà</h1>
+      <p class="subtitle">{{ items().length }} tòa nhà · {{ totalUnits() }} phòng cho thuê</p>
     </div>
     <div class="row">
-      <div class="search"><app-icon name="search" [size]="16" /><input class="input" id="property-search" placeholder="Search name or address…" [(ngModel)]="q" /></div>
+      <div class="search"><app-icon name="search" [size]="16" /><input class="input" id="property-search" placeholder="Tìm theo tên hoặc địa chỉ tòa nhà…" [(ngModel)]="q" /></div>
       @if (canManage()) {
-        <button class="btn btn-primary" id="property-new" (click)="openCreate()"><app-icon name="plus" /> New property</button>
+        <button class="btn btn-primary" id="property-new" (click)="openCreate()"><app-icon name="plus" /> Thêm tòa nhà mới</button>
       }
     </div>
   </header>
@@ -18,9 +18,9 @@
   } @else if (filtered().length === 0) {
     <div class="card empty">
       <div class="empty-icon"><app-icon name="building" [size]="26" /></div>
-      <h3>No properties yet</h3>
-      <p>Add your first building to start managing units and leases.</p>
-      @if (canManage()) { <button class="btn btn-primary mt" (click)="openCreate()"><app-icon name="plus" /> New property</button> }
+      <h3>Chưa có tòa nhà nào</h3>
+      <p>Thêm tòa nhà / cơ sở đầu tiên để bắt đầu quản lý danh sách phòng và hợp đồng.</p>
+      @if (canManage()) { <button class="btn btn-primary mt" (click)="openCreate()"><app-icon name="plus" /> Thêm tòa nhà mới</button> }
     </div>
   } @else {
     <div class="grid grid-auto stagger">
@@ -46,11 +46,11 @@
 </div>
 
 @if (showCreate()) {
-  <app-modal title="New property" subtitle="A building or house containing rentable units." (closed)="showCreate.set(false)">
+  <app-modal title="Thêm tòa nhà mới" subtitle="Tòa nhà hoặc khu nhà trọ chứa các phòng cho thuê." (closed)="showCreate.set(false)">
     <form class="stack" (ngSubmit)="create()" #f="ngForm">
-      <div class="field"><label for="pf-name">Name</label><input class="input" id="pf-name" name="name" required maxlength="200" [(ngModel)]="form.name" placeholder="Sunrise Apartments" /></div>
-      <div class="field"><label for="pf-address">Address</label><input class="input" id="pf-address" name="address" required maxlength="500" [(ngModel)]="form.address" placeholder="12 Nguyen Hue, District 1, HCMC" /></div>
-      <div class="field"><label for="pf-desc">Description</label><textarea class="input" id="pf-desc" name="description" maxlength="2000" [(ngModel)]="form.description"></textarea></div>
+      <div class="field"><label for="pf-name">Tên tòa nhà</label><input class="input" id="pf-name" name="name" required maxlength="200" [(ngModel)]="form.name" placeholder="VD: Nhà trọ Ánh Dương, Chung cư Mini..." /></div>
+      <div class="field"><label for="pf-address">Địa chỉ</label><input class="input" id="pf-address" name="address" required maxlength="500" [(ngModel)]="form.address" placeholder="VD: 123 Nguyễn Văn Cừ, Quận 5..." /></div>
+      <div class="field"><label for="pf-desc">Mô tả thêm</label><textarea class="input" id="pf-desc" name="description" maxlength="2000" [(ngModel)]="form.description" placeholder="Ghi chú thêm về cơ sở, nội quy..."></textarea></div>
 
       <div class="card" style="padding:0.75rem;background:#0c1a30;border:1px solid rgba(56,189,248,0.25)">
         <h4 style="margin:0 0 0.5rem;font-size:0.85rem;color:#38bdf8">⚡ Biểu phí dịch vụ của tòa nhà (Master Data)</h4>
@@ -110,8 +110,8 @@
       </div>
 
       <div class="row" style="justify-content:flex-end">
-        <button type="button" class="btn btn-ghost" (click)="showCreate.set(false)">Cancel</button>
-        <button class="btn btn-primary" id="pf-submit" [disabled]="saving() || f.invalid">@if (saving()) { <span class="spinner"></span> } Create</button>
+        <button type="button" class="btn btn-ghost" (click)="showCreate.set(false)">Hủy</button>
+        <button class="btn btn-primary" id="pf-submit" [disabled]="saving() || f.invalid">@if (saving()) { <span class="spinner"></span> } Tạo tòa nhà</button>
       </div>
     </form>
   </app-modal>

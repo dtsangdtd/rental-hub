@@ -1,14 +1,14 @@
 <div class="page">
   <header class="page-header">
     <div>
-      <div class="eyebrow">Accounting</div>
-      <h1>{{ isFinance() ? 'Invoices' : 'My invoices' }}</h1>
-      <p class="subtitle">Rent, deposits, shop orders and manual charges.</p>
+      <div class="eyebrow">Accounting · Kế toán thu chi</div>
+      <h1>{{ isFinance() ? 'Invoices · Danh sách hóa đơn' : 'My invoices · Hóa đơn của tôi' }}</h1>
+      <p class="subtitle">Tiền phòng, tiền cọc, đơn hàng và các khoản phụ phí.</p>
     </div>
     @if (isFinance()) {
       <div class="row">
-        <button class="btn" id="invoice-generate" (click)="openGenerate()"><app-icon name="refresh" [size]="16" /> Generate rent</button>
-        <button class="btn btn-primary" id="invoice-new" (click)="openCreate()"><app-icon name="plus" /> New invoice</button>
+        <button class="btn" id="invoice-generate" (click)="openGenerate()"><app-icon name="refresh" [size]="16" /> Tạo tiền phòng tháng</button>
+        <button class="btn btn-primary" id="invoice-new" (click)="openCreate()"><app-icon name="plus" /> Tạo hóa đơn mới</button>
       </div>
     }
   </header>
