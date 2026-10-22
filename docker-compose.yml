@@ -80,5 +80,10 @@ services:
     ports: ["8080:8080"]
     depends_on: [auth-service, property-service, accounting-service, commerce-service]
 
+  frontend:
+    build: { context: ., dockerfile: docker/frontend.Dockerfile }
+    ports: ["${FRONTEND_PORT:-80}:80"]
+    depends_on: [api-gateway]
+
 volumes:
   pgdata:
