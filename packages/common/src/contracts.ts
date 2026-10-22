@@ -13,6 +13,7 @@ export const Events = {
   UserRegistered: 'auth.user.registered',
   LeaseCreated: 'property.lease.created',
   LeaseTerminated: 'property.lease.terminated',
+  PropertyAutoInvoiceToggled: 'property.autoinvoice.toggled',
   InvoicePaid: 'accounting.invoice.paid',
   OrderPlaced: 'commerce.order.placed',
   OrderCancelled: 'commerce.order.cancelled',
@@ -40,6 +41,15 @@ export interface LeaseCreatedData {
   startDate: string; // YYYY-MM-DD
   endDate: string | null;
   dueDay: number; // 1..28
+  autoInvoice?: boolean;
+  autoInvoiceDay?: number;
+}
+
+export interface PropertyAutoInvoiceToggledData {
+  propertyId: string;
+  ownerId: string;
+  autoInvoice: boolean;
+  autoInvoiceDay?: number;
 }
 
 export interface LeaseTerminatedData {

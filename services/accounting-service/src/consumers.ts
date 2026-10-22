@@ -9,8 +9,9 @@ import {
   Logger,
   OrderCancelledData,
   OrderPlacedData,
+  PropertyAutoInvoiceToggledData,
 } from '@rental/common';
-import { createInvoice, dueDateFor, periodOf } from './invoices';
+import { calculateProratedRent, createInvoice, dueDateFor, periodOf } from './invoices';
 
 /**
  * Event consumers. Every handler runs inside handleOnce() so redelivered
@@ -19,18 +20,42 @@ import { createInvoice, dueDateFor, periodOf } from './invoices';
 export async function registerConsumers(pool: Pool, bus: EventBus, logger: Logger) {
   await bus.subscribe(
     'accounting-service.events',
-    [Events.LeaseCreated, Events.LeaseTerminated, Events.OrderPlaced, Events.OrderCancelled],
+    [
+      Events.LeaseCreated,
+      Events.LeaseTerminated,
+      Events.PropertyAutoInvoiceToggled,
+      Events.OrderPlaced,
+      Events.OrderCancelled,
+    ],
     async (event: DomainEvent) => {
       const handled = await handleOnce(pool, event.id, async (db) => {
         switch (event.type) {
           case Events.LeaseCreated: {
             const d = event.data as LeaseCreatedData;
             await db.query(
-              `INSERT INTO lease_billing (lease_id, owner_id, tenant_id, tenant_user_id, monthly_rent,
+              `INSERT INTO lease_billing (lease_id, owner_id, property_id, auto_invoice, auto_invoice_day, tenant_id, tenant_user_id, monthly_rent,
                                           currency, due_day, start_date, end_date)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-               ON CONFLICT (lease_id) DO NOTHING`,
-              [d.leaseId, d.ownerId, d.tenantId, d.tenantUserId, d.monthlyRent, d.currency, d.dueDay, d.startDate, d.endDate],
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+               ON CONFLICT (lease_id) DO UPDATE SET
+                 property_id = EXCLUDED.property_id,
+                 auto_invoice = EXCLUDED.auto_invoice,
+                 auto_invoice_day = EXCLUDED.auto_invoice_day,
+                 monthly_rent = EXCLUDED.monthly_rent,
+                 due_day = EXCLUDED.due_day`,
+              [
+                d.leaseId,
+                d.ownerId,
+                d.propertyId ?? null,
+                d.autoInvoice ?? false,
+                d.autoInvoiceDay ?? 5,
+                d.tenantId,
+                d.tenantUserId,
+                d.monthlyRent,
+                d.currency,
+                d.dueDay,
+                d.startDate,
+                d.endDate,
+              ],
             );
             if (d.deposit > 0) {
               await createInvoice(db, {
@@ -46,6 +71,16 @@ export async function registerConsumers(pool: Pool, bus: EventBus, logger: Logge
               });
             }
             const period = periodOf(d.startDate);
+            const prorated = calculateProratedRent(
+              d.monthlyRent,
+              d.startDate,
+              period,
+              d.autoInvoiceDay || 5,
+              d.endDate,
+            );
+            const desc = prorated.isProrated
+              ? `Tiền thuê phòng tháng ${period} (${prorated.daysStayed} ngày, từ ${prorated.stayStartStr} đến ${prorated.stayEndStr})`
+              : `Rent ${period}`;
             await createInvoice(db, {
               ownerId: d.ownerId,
               customerId: d.tenantUserId,
@@ -53,11 +88,22 @@ export async function registerConsumers(pool: Pool, bus: EventBus, logger: Logge
               referenceId: d.leaseId,
               kind: 'rent',
               period,
-              description: `Rent ${period}`,
-              amount: d.monthlyRent,
+              description: desc,
+              amount: prorated.amount,
               currency: d.currency,
               dueDate: d.startDate,
             });
+            break;
+          }
+          case Events.PropertyAutoInvoiceToggled: {
+            const d = event.data as PropertyAutoInvoiceToggledData;
+            await db.query(
+              `UPDATE lease_billing
+                  SET auto_invoice = $1,
+                      auto_invoice_day = COALESCE($3, auto_invoice_day)
+                WHERE property_id = $2`,
+              [d.autoInvoice, d.propertyId, d.autoInvoiceDay ?? null],
+            );
             break;
           }
           case Events.LeaseTerminated: {
@@ -114,6 +160,19 @@ export async function generateRentInvoices(pool: Pool, period: string, ownerId?:
   );
   let created = 0;
   for (const lb of rows) {
+    const prorated = calculateProratedRent(
+      Number(lb.monthly_rent),
+      lb.start_date,
+      period,
+      lb.auto_invoice_day || 5,
+      lb.end_date,
+    );
+    if (prorated.daysStayed <= 0) continue;
+
+    const desc = prorated.isProrated
+      ? `Tiền thuê phòng tháng ${period} (${prorated.daysStayed} ngày, từ ${prorated.stayStartStr} đến ${prorated.stayEndStr})`
+      : `Rent ${period}`;
+
     const inv = await createInvoice(pool, {
       ownerId: lb.owner_id,
       customerId: lb.tenant_user_id,
@@ -121,8 +180,8 @@ export async function generateRentInvoices(pool: Pool, period: string, ownerId?:
       referenceId: lb.lease_id,
       kind: 'rent',
       period,
-      description: `Rent ${period}`,
-      amount: lb.monthly_rent,
+      description: desc,
+      amount: prorated.amount,
       currency: lb.currency,
       dueDate: dueDateFor(period, lb.due_day),
     });
@@ -130,3 +189,74 @@ export async function generateRentInvoices(pool: Pool, period: string, ownerId?:
   }
   return { period, activeLeases: rows.length, created };
 }
+
+/**
+ * Automatically generates rent invoices on the configured billing day of each month
+ * for all active leases where the building has auto_invoice enabled. Idempotent.
+ */
+export async function autoGenerateMonthlyInvoices(
+  pool: Pool,
+  targetPeriod?: string,
+  ownerId?: string,
+  currentDay?: number,
+) {
+  const now = new Date();
+  const period = targetPeriod ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const day = currentDay ?? (targetPeriod ? 31 : now.getDate());
+  const params: unknown[] = [`${period}-28`, `${period}-01`, period, day];
+  let ownerClause = '';
+  if (ownerId) {
+    params.push(ownerId);
+    ownerClause = `AND lb.owner_id = $${params.length}`;
+  }
+
+  const { rows } = await pool.query(
+    `SELECT lb.* FROM lease_billing lb
+      WHERE lb.active = TRUE
+        AND lb.auto_invoice = TRUE
+        AND lb.auto_invoice_day <= $4
+        AND lb.start_date <= $1
+        AND (lb.end_date IS NULL OR lb.end_date >= $2)
+        ${ownerClause}
+        AND NOT EXISTS (
+          SELECT 1 FROM invoices i
+           WHERE i.reference_type = 'lease'
+             AND i.reference_id = lb.lease_id
+             AND i.period = $3
+             AND i.kind = 'rent'
+        )`,
+    params,
+  );
+
+  let created = 0;
+  for (const lb of rows) {
+    const prorated = calculateProratedRent(
+      Number(lb.monthly_rent),
+      lb.start_date,
+      period,
+      lb.auto_invoice_day || 5,
+      lb.end_date,
+    );
+    if (prorated.daysStayed <= 0) continue;
+
+    const desc = prorated.isProrated
+      ? `Tiền thuê phòng tháng ${period} (${prorated.daysStayed} ngày, từ ${prorated.stayStartStr} đến ${prorated.stayEndStr})`
+      : `Tiền thuê phòng tháng ${period}`;
+
+    const inv = await createInvoice(pool, {
+      ownerId: lb.owner_id,
+      customerId: lb.tenant_user_id,
+      referenceType: 'lease',
+      referenceId: lb.lease_id,
+      kind: 'rent',
+      period,
+      description: desc,
+      amount: prorated.amount,
+      currency: lb.currency,
+      dueDate: dueDateFor(period, lb.due_day),
+    });
+    if (inv) created++;
+  }
+  return { period, eligible: rows.length, created };
+}
+

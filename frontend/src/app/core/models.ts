@@ -38,6 +38,8 @@ export interface Property {
   bank_account_number?: string | null;
   bank_account_name?: string | null;
   bank_qr_code?: string | null;
+  auto_invoice?: boolean;
+  auto_invoice_day?: number;
   created_at: string;
   unit_count?: number;
   occupied_count?: number;

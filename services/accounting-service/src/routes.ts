@@ -17,7 +17,7 @@ import {
   validate,
 } from '@rental/common';
 import { createInvoice, syncBillInvoice } from './invoices';
-import { generateRentInvoices } from './consumers';
+import { autoGenerateMonthlyInvoices, generateRentInvoices } from './consumers';
 
 const uuid = z.string().uuid();
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected YYYY-MM-DD');
@@ -136,6 +136,21 @@ export function buildRouter(deps: { pool: Pool; bus: EventBus }): Router {
       const { period: p } = validate(z.object({ period }), req.body);
       const user = currentUser(req);
       const result = await generateRentInvoices(pool, p, user.id);
+      res.json(result);
+    }),
+  );
+
+  router.post(
+    '/invoices/auto-generate',
+    finance,
+    asyncHandler(async (req, res) => {
+      const b = validate(z.object({ period: period.optional() }), req.body);
+      const user = currentUser(req);
+      const result = await autoGenerateMonthlyInvoices(
+        pool,
+        b.period,
+        user.role === 'admin' ? undefined : user.id,
+      );
       res.json(result);
     }),
   );

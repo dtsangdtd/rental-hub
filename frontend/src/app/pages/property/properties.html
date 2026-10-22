@@ -34,6 +34,11 @@
             </div>
           </div>
           @if (p.description) { <p class="muted small desc">{{ p.description }}</p> }
+          @if (p.auto_invoice) {
+            <span class="badge badge-info small mt" style="width:fit-content;font-size:0.72rem;background:rgba(99,102,241,0.15);color:#818cf8;border:1px solid rgba(99,102,241,0.3)">
+              ⚡ Tự động tạo HĐ ngày {{ p.auto_invoice_day || 5 }}
+            </span>
+          }
           <div class="row mt small">
             <span class="muted">Occupancy</span><span class="spacer"></span>
             <b>{{ p.occupied_count ?? 0 }}/{{ p.unit_count ?? 0 }}</b>
@@ -107,6 +112,23 @@
             </div>
           }
         </div>
+      </div>
+
+      <div class="card" style="padding:0.85rem;background:#0c1a30;border:1px solid rgba(99,102,241,0.35);border-radius:8px">
+        <label style="display:flex;align-items:flex-start;gap:12px;cursor:pointer;margin:0">
+          <input type="checkbox" name="autoInvoice" [(ngModel)]="form.autoInvoice" style="width:18px;height:18px;accent-color:#6366f1;cursor:pointer;margin-top:2px" />
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:0.9rem;color:#a5b4fc">📅 Bật tự động tạo hóa đơn tiền phòng hàng tháng</div>
+            <div class="faint small" style="color:#94a3b8;margin-top:2px">Hệ thống sẽ tự động tạo hóa đơn tiền phòng cho tất cả các phòng đang có người ở trong tòa nhà này.</div>
+            @if (form.autoInvoice) {
+              <div style="margin-top:10px;display:flex;align-items:center;gap:10px">
+                <label style="font-size:0.85rem;color:#e2e8f0;white-space:nowrap">Ngày tạo hóa đơn hàng tháng:</label>
+                <input class="input" type="number" name="autoInvoiceDay" min="1" max="28" [(ngModel)]="form.autoInvoiceDay" style="width:80px;padding:4px 8px;text-align:center" />
+                <span class="faint small" style="color:#94a3b8">(Ngày 1 đến 28 hàng tháng)</span>
+              </div>
+            }
+          </div>
+        </label>
       </div>
 
       <div class="row" style="justify-content:flex-end">

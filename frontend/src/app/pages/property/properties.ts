@@ -48,6 +48,8 @@ export class PropertiesPage {
     bankAccountNumber: '',
     bankAccountName: '',
     bankQrCode: '',
+    autoInvoice: false,
+    autoInvoiceDay: 5,
   };
 
   constructor() {
@@ -72,6 +74,8 @@ export class PropertiesPage {
       bankAccountNumber: '',
       bankAccountName: '',
       bankQrCode: '',
+      autoInvoice: false,
+      autoInvoiceDay: 5,
     };
     this.showCreate.set(true);
   }
@@ -123,6 +127,8 @@ export class PropertiesPage {
         bankAccountNumber: this.form.bankAccountNumber.trim() || undefined,
         bankAccountName: this.form.bankAccountName.trim() || undefined,
         bankQrCode: this.form.bankQrCode.trim() || undefined,
+        autoInvoice: this.form.autoInvoice,
+        autoInvoiceDay: Number(this.form.autoInvoiceDay) || 5,
       });
       this.toast.success('Property created');
       this.showCreate.set(false);

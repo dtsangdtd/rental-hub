@@ -79,7 +79,7 @@ export class VietnamAddressService {
    */
   getWards(provinceNameOrCode?: string): VietmapWard[] {
     if (!provinceNameOrCode) {
-      return this.wardsList.slice(0, 150);
+      return this.wardsList;
     }
 
     const prov = this.provincesMap.get(provinceNameOrCode);

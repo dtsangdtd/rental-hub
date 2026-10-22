@@ -39,6 +39,8 @@ Errors are returned as `{ "error": { "code", "message", "details?" } }`.
 | GET | `/invoices/:id` | any (scoped) | includes `payments` |
 | POST | `/invoices` | admin, accountant, landlord | `{ description, amount, dueDate, customerId?, currency? }` |
 | POST | `/invoices/generate-rent` | finance roles | `{ period: "YYYY-MM" }` (idempotent) |
+| POST | `/invoices/auto-generate` | finance roles | `{ period?: "YYYY-MM" }` (generates rent invoices on day 5 for active leases in auto_invoice properties) |
+| POST | `/invoices/sync-bill` | finance roles | `{ leaseId, period, description, amount, metadata, ... }` (upsert/sync invoice from Rental Bill) |
 | POST | `/invoices/:id/payments` | finance roles | `{ amount, method: cash\|bank_transfer\|card\|ewallet, note? }` |
 | POST | `/invoices/:id/void` | finance roles | only when nothing has been paid |
 | GET/POST | `/expenses` | finance roles | `{ category, description, amount, spentOn, propertyId?, currency? }` |

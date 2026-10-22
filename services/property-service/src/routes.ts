@@ -14,6 +14,7 @@ import {
   LeaseCreatedData,
   LeaseTerminatedData,
   notFound,
+  PropertyAutoInvoiceToggledData,
   Queryable,
   requireRole,
   transaction,
@@ -37,6 +38,8 @@ const propertySchema = z.object({
   bankAccountNumber: z.string().max(50).optional(),
   bankAccountName: z.string().max(200).optional(),
   bankQrCode: z.string().optional().nullable(),
+  autoInvoice: z.boolean().default(false),
+  autoInvoiceDay: z.number().int().min(1).max(28).default(5),
 });
 const propertyPatchSchema = propertySchema.partial();
 const unitSchema = z.object({
@@ -135,8 +138,8 @@ export function buildRouter(deps: { pool: Pool; bus: EventBus }): Router {
     asyncHandler(async (req, res) => {
       const body = validate(propertySchema, req.body);
       const { rows } = await pool.query(
-        `INSERT INTO properties (owner_id, name, address, description, electricity_rate, water_rate, internet_rate, cleaning_rate, parking_rate, bank_name, bank_account_number, bank_account_name, bank_qr_code)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
+        `INSERT INTO properties (owner_id, name, address, description, electricity_rate, water_rate, internet_rate, cleaning_rate, parking_rate, bank_name, bank_account_number, bank_account_name, bank_qr_code, auto_invoice, auto_invoice_day)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING *`,
         [
           currentUser(req).id,
           body.name,
@@ -151,6 +154,8 @@ export function buildRouter(deps: { pool: Pool; bus: EventBus }): Router {
           body.bankAccountNumber ?? null,
           body.bankAccountName ?? null,
           body.bankQrCode ?? null,
+          body.autoInvoice,
+          body.autoInvoiceDay,
         ],
       );
       res.status(201).json(rows[0]);
@@ -180,7 +185,9 @@ export function buildRouter(deps: { pool: Pool; bus: EventBus }): Router {
            bank_name = COALESCE($10, bank_name),
            bank_account_number = COALESCE($11, bank_account_number),
            bank_account_name = COALESCE($12, bank_account_name),
-           bank_qr_code = CASE WHEN $13::boolean THEN $14 ELSE bank_qr_code END
+           bank_qr_code = CASE WHEN $13::boolean THEN $14 ELSE bank_qr_code END,
+           auto_invoice = COALESCE($15, auto_invoice),
+           auto_invoice_day = COALESCE($16, auto_invoice_day)
          WHERE id = $1 RETURNING *`,
         [
           id,
@@ -197,8 +204,21 @@ export function buildRouter(deps: { pool: Pool; bus: EventBus }): Router {
           body.bankAccountName ?? null,
           hasQr,
           body.bankQrCode ? body.bankQrCode : null,
+          body.autoInvoice ?? null,
+          body.autoInvoiceDay ?? null,
         ],
       );
+      if (
+        (body.autoInvoice !== undefined && body.autoInvoice !== property.auto_invoice) ||
+        (body.autoInvoiceDay !== undefined && body.autoInvoiceDay !== property.auto_invoice_day)
+      ) {
+        await bus.publish<PropertyAutoInvoiceToggledData>(Events.PropertyAutoInvoiceToggled, {
+          propertyId: id,
+          ownerId: property.owner_id,
+          autoInvoice: body.autoInvoice ?? property.auto_invoice,
+          autoInvoiceDay: body.autoInvoiceDay ?? property.auto_invoice_day,
+        });
+      }
       res.json(rows[0]);
     }),
   );
@@ -556,7 +576,7 @@ export function buildRouter(deps: { pool: Pool; bus: EventBus }): Router {
 
       const { lease, event } = await transaction(pool, async (client) => {
         const unitRes = await client.query(
-          `SELECT u.*, p.owner_id, p.id AS property_id
+          `SELECT u.*, p.owner_id, p.id AS property_id, p.auto_invoice, p.auto_invoice_day
              FROM units u JOIN properties p ON p.id = u.property_id
             WHERE u.id = $1 FOR UPDATE OF u`,
           [b.unitId],
@@ -578,6 +598,7 @@ export function buildRouter(deps: { pool: Pool; bus: EventBus }): Router {
           [unit.owner_id, b.unitId, b.tenantId, b.startDate, b.endDate ?? null, rent, b.deposit, b.currency, b.dueDay],
         );
         await client.query(`UPDATE units SET status = 'occupied' WHERE id = $1`, [b.unitId]);
+
         const l = leaseRes.rows[0];
         const data: LeaseCreatedData = {
           leaseId: l.id,
@@ -592,6 +613,8 @@ export function buildRouter(deps: { pool: Pool; bus: EventBus }): Router {
           startDate: l.start_date,
           endDate: l.end_date,
           dueDay: l.due_day,
+          autoInvoice: unit.auto_invoice ?? false,
+          autoInvoiceDay: unit.auto_invoice_day ?? 5,
         };
         return { lease: l, event: data };
       });

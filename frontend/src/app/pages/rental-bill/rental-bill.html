@@ -198,6 +198,29 @@
         </div>
       </div>
 
+      <!-- Prorated Rent Banner -->
+      <div class="prorated-banner" *ngIf="proratedInfo?.isProrated">
+        <div class="prorated-header">
+          <div class="header-left">
+            <span class="prorated-tag">⚡ TỰ ĐỘNG TÍNH THEO NGÀY Ở</span>
+            <span class="days-badge">{{ proratedInfo?.daysStayed }} ngày ở thực tế</span>
+          </div>
+          <span class="prorated-amount">{{ proratedInfo?.amount | number }} ₫</span>
+        </div>
+        <div class="prorated-desc">
+          Khách vào ở từ <strong>{{ proratedInfo?.stayStartFormatted }}</strong> đến hết ngày <strong>{{ proratedInfo?.stayEndFormatted }}</strong> (chốt hóa đơn ngày {{ selectedLease?.due_day || selectedProperty?.auto_invoice_day || 5 }}).
+        </div>
+        <div class="prorated-formula">
+          💡 Công thức: ({{ (selectedLease?.monthly_rent || 0) | number }} ₫ ÷ 30 ngày) × {{ proratedInfo?.daysStayed }} ngày = <strong>{{ proratedInfo?.amount | number }} ₫</strong>
+        </div>
+        <div class="prorated-adjust">
+          <span>Tùy chỉnh số ngày:</span>
+          <button type="button" class="btn-day-adjust" (click)="applyCustomProratedDays((proratedInfo?.daysStayed || 0) - 1)">-1 ngày</button>
+          <button type="button" class="btn-day-adjust" (click)="applyCustomProratedDays((proratedInfo?.daysStayed || 0) + 1)">+1 ngày</button>
+          <button type="button" class="btn-day-reset" (click)="updateRentItemForCurrentPeriod()">Khôi phục tự động</button>
+        </div>
+      </div>
+
       <!-- Address / Facility / Unit -->
       <div class="form-group">
         <label class="form-label">Địa chỉ / Cơ sở / Phòng:</label>

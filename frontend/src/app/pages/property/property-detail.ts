@@ -55,6 +55,8 @@ export class PropertyDetailPage {
     bankAccountNumber: '',
     bankAccountName: '',
     bankQrCode: '',
+    autoInvoice: false,
+    autoInvoiceDay: 5,
   };
 
   protected openTariffModal() {
@@ -70,6 +72,8 @@ export class PropertyDetailPage {
         bankAccountNumber: p.bank_account_number || '',
         bankAccountName: p.bank_account_name || '',
         bankQrCode: p.bank_qr_code || '',
+        autoInvoice: Boolean(p.auto_invoice),
+        autoInvoiceDay: p.auto_invoice_day || 5,
       };
     }
     this.showTariffModal.set(true);
@@ -77,6 +81,25 @@ export class PropertyDetailPage {
 
   protected readonly isUploadingQr = signal(false);
   protected readonly uploadProgress = signal(0);
+  protected readonly togglingAutoInvoice = signal(false);
+
+  protected async toggleAutoInvoice() {
+    const p = this.property();
+    if (!p) return;
+    this.togglingAutoInvoice.set(true);
+    try {
+      const nextVal = !p.auto_invoice;
+      await this.api.patch<PropertyDetail>(`/property/properties/${this.id()}`, {
+        autoInvoice: nextVal,
+      });
+      this.toast.success(nextVal ? `Đã BẬT tự động tạo hóa đơn tiền phòng ngày ${p.auto_invoice_day || 5}` : 'Đã TẮT tự động tạo hóa đơn');
+      await this.load(this.id());
+    } catch (err) {
+      this.toast.error(errorMessage(err));
+    } finally {
+      this.togglingAutoInvoice.set(false);
+    }
+  }
 
   protected async onQrFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
@@ -119,8 +142,10 @@ export class PropertyDetailPage {
         bankAccountNumber: this.tariffForm.bankAccountNumber.trim() || undefined,
         bankAccountName: this.tariffForm.bankAccountName.trim() || undefined,
         bankQrCode: this.tariffForm.bankQrCode,
+        autoInvoice: this.tariffForm.autoInvoice,
+        autoInvoiceDay: Number(this.tariffForm.autoInvoiceDay) || 5,
       });
-      this.toast.success('Đã cập nhật biểu phí dịch vụ & tài khoản ngân hàng');
+      this.toast.success('Đã cập nhật biểu phí dịch vụ & cài đặt hóa đơn');
       this.showTariffModal.set(false);
       await this.load(this.id());
     } catch (err) {

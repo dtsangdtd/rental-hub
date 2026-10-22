@@ -145,3 +145,102 @@ export const dueDateFor = (period: string, dueDay: number) =>
   `${period}-${String(dueDay).padStart(2, '0')}`;
 
 export const periodOf = (isoDate: string) => isoDate.slice(0, 7);
+
+export interface ProratedRentResult {
+  amount: number;
+  daysStayed: number;
+  dailyRate: number;
+  isProrated: boolean;
+  cycleStartStr: string;
+  cycleEndStr: string;
+  stayStartStr: string;
+  stayEndStr: string;
+}
+
+/**
+ * Calculates rent according to actual days stayed in the billing cycle,
+ * using the standard 30-day average divisor: dailyRate = monthlyRent / 30.
+ *
+ * Example (user specified):
+ * - Monthly rent: 800,000 VND -> dailyRate = 800,000 / 30 = 26,667 VND/day
+ * - Tenant moves in: 15th (e.g. 15/10)
+ * - Auto invoice on 5th of next month (e.g. 05/11):
+ *   Cycle runs up to end of 4th of next month (04/11) -> 21 days stayed
+ * - First month rent = Math.round(26,666.67 * 21) = 560,000 VND
+ */
+export function calculateProratedRent(
+  monthlyRent: number,
+  startDateStr: string,
+  periodStr: string, // 'YYYY-MM'
+  billingDay: number = 5,
+  endDateStr?: string | null,
+): ProratedRentResult {
+  const bDay = Number(billingDay) || 5;
+  const [pYear, pMonth] = periodStr.split('-').map(Number);
+  const [sYear, sMonth, sDay] = startDateStr.slice(0, 10).split('-').map(Number);
+  const startStay = new Date(Date.UTC(sYear, sMonth - 1, sDay));
+
+  let cycleStart: Date;
+  let cycleEnd: Date;
+
+  // If viewing/billing the move-in month and move-in day > billingDay:
+  // e.g. moved in 15/10 and billing day is 5:
+  // First cycle covers from 15/10 to 04/11 (day before billingDay of next month)
+  if (sYear === pYear && sMonth === pMonth && sDay > bDay) {
+    cycleStart = startStay;
+    cycleEnd = new Date(Date.UTC(pYear, pMonth, bDay - 1));
+  } else {
+    // Cycle ends on (bDay - 1) of pMonth.
+    if (bDay <= 1) {
+      cycleEnd = new Date(Date.UTC(pYear, pMonth - 1, 0)); // last day of prev month
+      cycleStart = new Date(Date.UTC(cycleEnd.getUTCFullYear(), cycleEnd.getUTCMonth(), 1));
+    } else {
+      cycleEnd = new Date(Date.UTC(pYear, pMonth - 1, bDay - 1));
+      cycleStart = new Date(Date.UTC(pYear, pMonth - 2, bDay));
+    }
+  }
+
+  const actualStart = startStay > cycleStart ? startStay : cycleStart;
+  let actualEnd = cycleEnd;
+  if (endDateStr) {
+    const [eYear, eMonth, eDay] = endDateStr.slice(0, 10).split('-').map(Number);
+    const endStay = new Date(Date.UTC(eYear, eMonth - 1, eDay));
+    if (endStay < cycleEnd) {
+      actualEnd = endStay;
+    }
+  }
+
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const diffMs = actualEnd.getTime() - actualStart.getTime();
+  const daysStayed = diffMs >= 0 ? Math.round(diffMs / msPerDay) + 1 : 0;
+
+  const isFullCycle =
+    actualStart.getTime() === cycleStart.getTime() && actualEnd.getTime() === cycleEnd.getTime() && daysStayed >= 28;
+
+  const dailyRate = Number(monthlyRent) / 30;
+
+  if (isFullCycle || daysStayed >= 30) {
+    return {
+      amount: Number(monthlyRent),
+      daysStayed: 30,
+      dailyRate,
+      isProrated: false,
+      cycleStartStr: cycleStart.toISOString().slice(0, 10),
+      cycleEndStr: cycleEnd.toISOString().slice(0, 10),
+      stayStartStr: actualStart.toISOString().slice(0, 10),
+      stayEndStr: actualEnd.toISOString().slice(0, 10),
+    };
+  }
+
+  const amount = Math.round(dailyRate * daysStayed);
+  return {
+    amount,
+    daysStayed,
+    dailyRate,
+    isProrated: true,
+    cycleStartStr: cycleStart.toISOString().slice(0, 10),
+    cycleEndStr: cycleEnd.toISOString().slice(0, 10),
+    stayStartStr: actualStart.toISOString().slice(0, 10),
+    stayEndStr: actualEnd.toISOString().slice(0, 10),
+  };
+}

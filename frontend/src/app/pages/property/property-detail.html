@@ -56,6 +56,39 @@
       </div>
     </div>
 
+    <!-- Auto-Invoice Feature Card -->
+    <div class="card mb" style="padding:1rem 1.25rem;background:#0c1a30;border:1px solid rgba(99,102,241,0.35);border-radius:10px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div style="width:42px;height:42px;border-radius:8px;background:rgba(99,102,241,0.2);display:flex;align-items:center;justify-content:center;font-size:1.35rem;flex-shrink:0">
+          📅
+        </div>
+        <div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-weight:600;font-size:0.95rem;color:#f8fafc">Tự động tạo hóa đơn tiền phòng hàng tháng (Ngày {{ p.auto_invoice_day || 5 }})</span>
+            @if (p.auto_invoice) {
+              <span class="badge" style="background:#059669;color:#fff;font-size:0.75rem;padding:2px 8px;font-weight:600">ĐANG BẬT (NGÀY {{ p.auto_invoice_day || 5 }})</span>
+            } @else {
+              <span class="badge" style="background:#475569;color:#cbd5e1;font-size:0.75rem;padding:2px 8px">ĐANG TẮT</span>
+            }
+          </div>
+          <p class="faint small" style="margin:4px 0 0;color:#94a3b8;max-width:700px">
+            {{ p.auto_invoice 
+              ? ('Hệ thống tự động tạo hóa đơn tiền phòng vào ngày ' + (p.auto_invoice_day || 5) + ' hàng tháng cho tất cả các phòng có khách thuê. Nếu khách vào ở giữa tháng (ví dụ ngày 15), tiền phòng sẽ được tính theo số ngày ở thực tế.') 
+              : 'Tính năng đang tắt. Các phòng thuộc tòa nhà này sẽ không tự động tạo hóa đơn nếu tính năng này chưa được bật.' }}
+          </p>
+        </div>
+      </div>
+      <div class="row" style="gap:8px">
+        @if (canManage()) {
+          <button class="btn btn-secondary btn-sm" (click)="openTariffModal()">Đổi ngày tạo HĐ</button>
+          <button class="btn btn-sm" [class.btn-primary]="!p.auto_invoice" [class.btn-danger]="p.auto_invoice" [disabled]="togglingAutoInvoice()" (click)="toggleAutoInvoice()">
+            @if (togglingAutoInvoice()) { <span class="spinner-sm"></span> }
+            {{ p.auto_invoice ? 'Tắt tính năng' : ('Bật tự động tạo HĐ ngày ' + (p.auto_invoice_day || 5)) }}
+          </button>
+        }
+      </div>
+    </div>
+
     <div class="grid grid-4 stagger mb">
       <div class="card stat"><div class="label">Units</div><div class="value">{{ p.units.length }}</div></div>
       <div class="card stat accent"><div class="label">Occupied</div><div class="value text-success">{{ count('occupied') }}</div></div>
@@ -177,6 +210,23 @@
             <span class="faint small" style="color:#22c55e">✓ Đã tải ảnh QR thành công</span>
           </div>
         }
+      </div>
+
+      <div class="field full" style="padding:0.75rem;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:6px">
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin:0">
+          <input type="checkbox" name="autoInvoice" [(ngModel)]="tariffForm.autoInvoice" style="width:18px;height:18px;accent-color:#6366f1;cursor:pointer;margin-top:2px" />
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:0.9rem;color:#a5b4fc">📅 Bật tính năng tự tạo hóa đơn hàng tháng</div>
+            <div class="faint small" style="color:#94a3b8;margin-top:2px">Tự động tạo hóa đơn tiền phòng hàng tháng cho các phòng có khách thuê trong tòa nhà này. Tiền phòng sẽ được tính theo số ngày ở thực tế nếu vào giữa tháng.</div>
+            @if (tariffForm.autoInvoice) {
+              <div style="margin-top:10px;display:flex;align-items:center;gap:10px">
+                <label style="font-size:0.85rem;color:#e2e8f0;white-space:nowrap">Ngày tạo hóa đơn hàng tháng:</label>
+                <input class="input" type="number" name="autoInvoiceDay" min="1" max="28" [(ngModel)]="tariffForm.autoInvoiceDay" style="width:80px;padding:4px 8px;text-align:center" />
+                <span class="faint small" style="color:#94a3b8">(Ngày 1 đến 28 hàng tháng)</span>
+              </div>
+            }
+          </div>
+        </label>
       </div>
 
       <div class="row full form-actions">

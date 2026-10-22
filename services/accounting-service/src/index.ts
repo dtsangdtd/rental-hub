@@ -11,7 +11,7 @@ import {
   runMigrations,
 } from '@rental/common';
 import { buildRouter } from './routes';
-import { registerConsumers } from './consumers';
+import { autoGenerateMonthlyInvoices, registerConsumers } from './consumers';
 
 const SERVICE = 'accounting-service';
 
@@ -26,6 +26,20 @@ async function main() {
   await bus.connect();
   await registerConsumers(pool, bus, logger);
 
+  // Background monthly billing check: auto-generates on configured billing day for properties with auto_invoice=true
+  const runAutoBilling = async () => {
+    try {
+      const res = await autoGenerateMonthlyInvoices(pool);
+      if (res.created > 0) {
+        logger.info(res, 'Auto-generated monthly rent invoices for eligible properties with auto_invoice=true');
+      }
+    } catch (err) {
+      logger.error(err, 'Failed to run auto-generate monthly invoices');
+    }
+  };
+  void runAutoBilling();
+  const autoBillInterval = setInterval(runAutoBilling, 60 * 60 * 1000);
+
   const app = createApp(SERVICE);
   app.use(requireAuth(jwtSecret));
   app.use('/', buildRouter({ pool, bus }));
@@ -33,6 +47,7 @@ async function main() {
 
   const server = app.listen(port, () => logger.info({ port }, `${SERVICE} listening`));
   const shutdown = async () => {
+    clearInterval(autoBillInterval);
     server.close();
     await bus.close().catch(() => undefined);
     await pool.end();

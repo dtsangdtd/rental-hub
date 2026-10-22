@@ -108,6 +108,158 @@ export class RentalBillPage implements OnInit {
     return item.isMeter && item.meterStart !== undefined && item.meterStart > 0;
   }
 
+  proratedInfo: {
+    amount: number;
+    daysStayed: number;
+    dailyRate: number;
+    isProrated: boolean;
+    stayStartFormatted: string;
+    stayEndFormatted: string;
+  } | null = null;
+
+  /**
+   * Calculates rent according to actual days stayed in the billing cycle,
+   * using the standard 30-day average divisor: dailyRate = monthlyRent / 30.
+   *
+   * Example (user specified):
+   * - Monthly rent: 800,000 VND -> dailyRate = 800,000 / 30 = 26,667 VND/day
+   * - Move-in: 15/10, Billing day: 5 -> Stay to 04/11 = 21 days
+   * - First month rent = Math.round(26,666.67 * 21) = 560,000 VND
+   */
+  calculateProratedRent(
+    monthlyRent: number,
+    startDateStr: string,
+    year: number,
+    month: number,
+    billingDay: number = 5,
+    endDateStr?: string | null,
+  ): {
+    amount: number;
+    daysStayed: number;
+    dailyRate: number;
+    isProrated: boolean;
+    stayStartFormatted: string;
+    stayEndFormatted: string;
+  } {
+    billingDay = Number(billingDay) || 5;
+    const [sYear, sMonth, sDay] = startDateStr.slice(0, 10).split('-').map(Number);
+    const startStay = new Date(Date.UTC(sYear, sMonth - 1, sDay));
+
+    let cycleStart: Date;
+    let cycleEnd: Date;
+
+    // Check if viewing the move-in month when tenant moved in after the billing day (e.g. moved in 15/10 with billingDay = 5):
+    // In this case, the first billing cycle covers from move-in day (15/10) to the eve of the next billing day (04/11),
+    // billed on the 5th of next month (05/11).
+    if (sYear === year && sMonth === month && sDay > billingDay) {
+      cycleStart = startStay;
+      cycleEnd = new Date(Date.UTC(year, month, billingDay - 1));
+    } else {
+      if (billingDay <= 1) {
+        cycleEnd = new Date(Date.UTC(year, month - 1, 0));
+        cycleStart = new Date(Date.UTC(cycleEnd.getUTCFullYear(), cycleEnd.getUTCMonth(), 1));
+      } else {
+        cycleEnd = new Date(Date.UTC(year, month - 1, billingDay - 1));
+        cycleStart = new Date(Date.UTC(year, month - 2, billingDay));
+      }
+    }
+
+    const actualStart = startStay > cycleStart ? startStay : cycleStart;
+    let actualEnd = cycleEnd;
+
+    if (endDateStr) {
+      const [eYear, eMonth, eDay] = endDateStr.slice(0, 10).split('-').map(Number);
+      const endStay = new Date(Date.UTC(eYear, eMonth - 1, eDay));
+      if (endStay < cycleEnd) {
+        actualEnd = endStay;
+      }
+    }
+
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const diffMs = actualEnd.getTime() - actualStart.getTime();
+    const daysStayed = diffMs >= 0 ? Math.round(diffMs / msPerDay) + 1 : 0;
+
+    const isFullCycle =
+      actualStart.getTime() === cycleStart.getTime() && actualEnd.getTime() === cycleEnd.getTime() && daysStayed >= 28;
+
+    const dailyRate = Number(monthlyRent) / 30;
+
+    const formatD = (d: Date) =>
+      `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+
+    if (isFullCycle || daysStayed >= 30) {
+      return {
+        amount: Number(monthlyRent),
+        daysStayed: 30,
+        dailyRate,
+        isProrated: false,
+        stayStartFormatted: formatD(actualStart),
+        stayEndFormatted: formatD(actualEnd),
+      };
+    }
+
+    const amount = Math.round(dailyRate * daysStayed);
+    return {
+      amount,
+      daysStayed,
+      dailyRate,
+      isProrated: true,
+      stayStartFormatted: formatD(actualStart),
+      stayEndFormatted: formatD(actualEnd),
+    };
+  }
+
+  /** Auto-calculates Tiền nhà for currently selected lease and month */
+  updateRentItemForCurrentPeriod(): void {
+    if (!this.selectedLease) return;
+    const rentItem = this.items.find((i) => this.isRentItem(i));
+    if (!rentItem) return;
+
+    const billingDay =
+      this.selectedLease.due_day || this.selectedProperty?.auto_invoice_day || 5;
+
+    const prorated = this.calculateProratedRent(
+      Number(this.selectedLease.monthly_rent),
+      this.selectedLease.start_date,
+      this.year,
+      this.month,
+      billingDay,
+      this.selectedLease.end_date,
+    );
+
+    this.proratedInfo = prorated;
+    rentItem.unitPrice = prorated.amount;
+    rentItem.total = rentItem.unitPrice * (rentItem.quantity || 1);
+    if (prorated.isProrated) {
+      rentItem.name = `Tiền nhà (${prorated.daysStayed} ngày ở, từ ${prorated.stayStartFormatted} đến ${prorated.stayEndFormatted})`;
+    } else {
+      rentItem.name = 'Tiền nhà (Tiền thuê phòng)';
+    }
+  }
+
+  applyCustomProratedDays(days: number): void {
+    if (!this.selectedLease || days < 0) return;
+    const rentItem = this.items.find((i) => this.isRentItem(i));
+    if (!rentItem) return;
+
+    const dailyRate = Number(this.selectedLease.monthly_rent) / 30;
+    const amount = days >= 30 ? Number(this.selectedLease.monthly_rent) : Math.round(dailyRate * days);
+
+    rentItem.unitPrice = amount;
+    rentItem.total = rentItem.unitPrice * (rentItem.quantity || 1);
+    if (days < 30) {
+      rentItem.name = `Tiền nhà (${days} ngày ở theo thực tế)`;
+    } else {
+      rentItem.name = 'Tiền nhà (Tiền thuê phòng)';
+    }
+    if (this.proratedInfo) {
+      this.proratedInfo.daysStayed = days;
+      this.proratedInfo.amount = amount;
+      this.proratedInfo.isProrated = days < 30;
+    }
+    this.cdr.detectChanges();
+  }
+
   async ngOnInit(): Promise<void> {
     this.resetToDefaults();
     await this.loadAllSources();
@@ -363,12 +515,8 @@ export class RentalBillPage implements OnInit {
       this.bankQrCode = this.selectedProperty.bank_qr_code;
     }
 
-    // 1. Auto-fill 'Tiền nhà' directly from lease.monthly_rent (Rent / month)
-    const rentItem = this.items.find((i) => this.isRentItem(i));
-    if (rentItem) {
-      rentItem.unitPrice = Number(lease.monthly_rent);
-      rentItem.total = rentItem.unitPrice * (rentItem.quantity || 1);
-    }
+    // 1. Auto-fill 'Tiền nhà' directly from lease.monthly_rent (pro-rated if moved in during current period)
+    this.updateRentItemForCurrentPeriod();
 
     // 2. Auto-apply Master Data tariffs
     this.applyTariffs({
@@ -465,6 +613,7 @@ export class RentalBillPage implements OnInit {
   }
 
   onPeriodChange(): void {
+    this.updateRentItemForCurrentPeriod();
     this.syncSavedReadingsForCurrentPeriod();
     void this.checkInvoiceStatus();
     this.cdr.detectChanges();
@@ -525,6 +674,7 @@ export class RentalBillPage implements OnInit {
 
     this.month = nextMonth;
     this.year = nextYear;
+    this.updateRentItemForCurrentPeriod();
     this.syncSavedReadingsForCurrentPeriod();
     void this.checkInvoiceStatus();
     this.savedMessage = `✓ Đã chuyển sang Tháng ${this.month}/${this.year}. Số cũ đã được tự động cập nhật từ số mới kỳ trước.`;

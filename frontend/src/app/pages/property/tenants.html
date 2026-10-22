@@ -185,26 +185,120 @@
       <!-- Section 3: Địa chỉ mới Việt Nam (Vietmap) -->
       <div class="form-section-title">3. Địa chỉ thường trú (Địa giới mới Việt Nam 🇻🇳)</div>
 
-      <div class="field">
-        <label for="tf-city">Thành Phố / Tỉnh (Tùy chọn)</label>
-        <select class="input" id="tf-city" name="city" [(ngModel)]="form.city" (ngModelChange)="onProvinceChange($event)">
-          <option value="">-- Để trống / Tất cả tỉnh thành --</option>
-          @for (p of addressService.provinces(); track p.code) {
-            <option [value]="p.name">{{ p.name_with_type }}</option>
+      <div class="field city-field">
+        <label for="tf-city">Thành Phố / Tỉnh (Tìm kiếm & Chọn)</label>
+        <div class="searchable-combobox province-combobox" [class.open]="isProvinceDropdownOpen()">
+          <div class="combobox-trigger" (click)="toggleProvinceDropdown()" id="tf-city">
+            <span class="trigger-text" [class.placeholder]="!form.city">
+              {{ form.city || '-- Để trống / Tất cả tỉnh thành --' }}
+            </span>
+            <div class="trigger-actions">
+              @if (form.city) {
+                <button type="button" class="btn-clear" (click)="clearProvince($event)" title="Xóa chọn">✕</button>
+              }
+              <span class="trigger-arrow">{{ isProvinceDropdownOpen() ? '▲' : '▼' }}</span>
+            </div>
+          </div>
+
+          @if (isProvinceDropdownOpen()) {
+            <div class="combobox-panel" (click)="$event.stopPropagation()">
+              <div class="search-box">
+                <input
+                  type="text"
+                  class="input search-input"
+                  placeholder="🔍 Gõ tìm nhanh (VD: Hà Nội, Hồ Chí Minh, Đà Nẵng)..."
+                  [value]="provinceSearchQuery()"
+                  (input)="provinceSearchQuery.set($any($event.target).value)"
+                  autofocus
+                />
+              </div>
+
+              <div class="options-list">
+                <div
+                  class="combobox-option"
+                  [class.active]="!form.city"
+                  (click)="clearProvince()"
+                >
+                  <div class="option-name">-- Để trống / Tất cả tỉnh thành --</div>
+                </div>
+                @if (filteredProvinces().length === 0) {
+                  <div class="option-empty">
+                    Không tìm thấy tỉnh thành nào khớp với "{{ provinceSearchQuery() }}"
+                  </div>
+                } @else {
+                  @for (p of filteredProvinces(); track p.code) {
+                    <div
+                      class="combobox-option"
+                      [class.active]="form.city === p.name"
+                      (click)="selectProvince(p)"
+                    >
+                      <div class="option-name">{{ p.name_with_type }}</div>
+                      <div class="option-path">Mã hành chính: {{ p.code }}</div>
+                    </div>
+                  }
+                }
+              </div>
+            </div>
           }
-        </select>
-        <span class="hint">34 Tỉnh / Thành phố mới</span>
+        </div>
+        <span class="hint">34 Tỉnh / Thành phố mới (hỗ trợ tìm kiếm)</span>
       </div>
 
-      <div class="field">
-        <label for="tf-ward">Xã / Phường (Dropdown) *</label>
-        <select class="input highlight-select" id="tf-ward" name="ward" [(ngModel)]="form.ward" (ngModelChange)="onWardChange($event)">
-          <option value="">-- Chọn Xã / Phường / Thị trấn --</option>
-          @for (w of availableWards(); track w.code) {
-            <option [value]="w.name_with_type">{{ w.name_with_type }}</option>
+      <div class="field ward-field">
+        <label for="tf-ward">Xã / Phường (Tìm kiếm & Chọn) *</label>
+        <div class="searchable-combobox ward-combobox" [class.open]="isWardDropdownOpen()">
+          <div class="combobox-trigger" (click)="toggleWardDropdown()" id="tf-ward">
+            <span class="trigger-text" [class.placeholder]="!form.ward">
+              {{ form.ward || '-- Gõ để tìm Xã / Phường / Thị trấn --' }}
+            </span>
+            <div class="trigger-actions">
+              @if (form.ward) {
+                <button type="button" class="btn-clear" (click)="clearWard($event)" title="Xóa chọn">✕</button>
+              }
+              <span class="trigger-arrow">{{ isWardDropdownOpen() ? '▲' : '▼' }}</span>
+            </div>
+          </div>
+
+          @if (isWardDropdownOpen()) {
+            <div class="combobox-panel" (click)="$event.stopPropagation()">
+              <div class="search-box">
+                <input
+                  type="text"
+                  class="input search-input"
+                  placeholder="🔍 Gõ tìm nhanh (VD: Bến Nghé, Phường 1, Tân Bình)..."
+                  [value]="wardSearchQuery()"
+                  (input)="onWardSearchInput($event)"
+                  autofocus
+                />
+              </div>
+
+              <div class="options-list">
+                @if (filteredWards().length === 0) {
+                  <div class="option-empty">
+                    Không tìm thấy xã/phường nào khớp với "{{ wardSearchQuery() }}"
+                  </div>
+                } @else {
+                  <div class="results-count">
+                    Tìm thấy {{ filteredWards().length }}{{ filteredWards().length === 100 ? '+' : '' }} xã / phường
+                  </div>
+                  @for (w of filteredWards(); track w.code) {
+                    <div
+                      class="combobox-option"
+                      [class.active]="form.ward === w.name_with_type"
+                      (click)="selectWard(w)"
+                    >
+                      <div class="option-name">{{ w.name_with_type }}</div>
+                      @if (w.path_with_type) {
+                        <div class="option-path">{{ w.path_with_type }}</div>
+                      }
+                    </div>
+                  }
+                }
+              </div>
+            </div>
           }
-        </select>
-        <span class="hint">Đơn vị hành chính cấp xã mới</span>
+        </div>
+        <span class="hint">Tìm kiếm thông minh (hỗ trợ gõ tiếng Việt không dấu)</span>
       </div>
 
       <div class="field full">

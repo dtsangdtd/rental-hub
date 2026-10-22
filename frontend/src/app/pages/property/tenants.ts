@@ -1,11 +1,11 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, HostListener, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Api, errorMessage } from '../../core/api';
 import { AuthStore } from '../../core/auth.store';
 import { ListResponse, Tenant } from '../../core/models';
 import { ToastService } from '../../core/ui.services';
-import { VietnamAddressService, VietmapWard } from '../../core/vietnam-address.service';
+import { VietnamAddressService, VietmapProvince, VietmapWard } from '../../core/vietnam-address.service';
 import { MANAGE_PROPERTY } from '../../nav';
 import { Icon } from '../../shared/icon';
 import { Modal } from '../../shared/overlays';
@@ -68,10 +68,128 @@ export class TenantsPage {
 
   protected form: TenantFormData = this.emptyForm();
 
+  /** Province / City dropdown state & search */
+  readonly provinceSearchQuery = signal('');
+  readonly isProvinceDropdownOpen = signal(false);
+
+  readonly filteredProvinces = computed<VietmapProvince[]>(() => {
+    const q = this.provinceSearchQuery().trim().toLowerCase();
+    const provinces = this.addressService.provinces();
+    if (!q) return provinces;
+    const normQ = q.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return provinces.filter((p) => {
+      const name = (p.name_with_type || '').toLowerCase();
+      if (name.includes(q)) return true;
+      const normName = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return normName.includes(normQ);
+    });
+  });
+
+  toggleProvinceDropdown(): void {
+    const next = !this.isProvinceDropdownOpen();
+    this.isProvinceDropdownOpen.set(next);
+    if (next) {
+      this.isWardDropdownOpen.set(false);
+      this.provinceSearchQuery.set('');
+      setTimeout(() => {
+        const input = document.querySelector<HTMLInputElement>('.province-combobox .search-input');
+        input?.focus();
+      }, 50);
+    }
+  }
+
+  selectProvince(p: VietmapProvince): void {
+    this.form.city = p.name;
+    this.form.ward = '';
+    this.isProvinceDropdownOpen.set(false);
+    this.provinceSearchQuery.set('');
+    this.wardSearchQuery.set('');
+  }
+
+  clearProvince(event?: MouseEvent): void {
+    if (event) event.stopPropagation();
+    this.form.city = '';
+    this.form.ward = '';
+    this.provinceSearchQuery.set('');
+    this.wardSearchQuery.set('');
+  }
+
   /** Dynamic list of Wards based on selected Province/City (Vietmap new administrative address) */
   readonly availableWards = computed<VietmapWard[]>(() => {
     return this.addressService.getWards(this.form.city);
   });
+
+  /** Search query within the ward dropdown */
+  readonly wardSearchQuery = signal('');
+  readonly isWardDropdownOpen = signal(false);
+
+  /** Filtered wards based on search query (supports unaccented Vietnamese search, max 120 results) */
+  readonly filteredWards = computed<VietmapWard[]>(() => {
+    const q = this.wardSearchQuery().trim().toLowerCase();
+    const wards = this.availableWards();
+    if (!q) {
+      return wards.slice(0, 100);
+    }
+    const normQ = q.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const results: VietmapWard[] = [];
+    for (const w of wards) {
+      const name = (w.name_with_type || '').toLowerCase();
+      const path = (w.path_with_type || '').toLowerCase();
+      if (name.includes(q) || path.includes(q)) {
+        results.push(w);
+      } else {
+        const normName = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const normPath = path.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        if (normName.includes(normQ) || normPath.includes(normQ)) {
+          results.push(w);
+        }
+      }
+      if (results.length >= 100) break;
+    }
+    return results;
+  });
+
+  toggleWardDropdown(): void {
+    const next = !this.isWardDropdownOpen();
+    this.isWardDropdownOpen.set(next);
+    if (next) {
+      this.isProvinceDropdownOpen.set(false);
+      this.wardSearchQuery.set('');
+      setTimeout(() => {
+        const input = document.querySelector<HTMLInputElement>('.ward-combobox .search-input');
+        input?.focus();
+      }, 50);
+    }
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement | null;
+    if (this.isWardDropdownOpen() && !target?.closest('.ward-combobox')) {
+      this.isWardDropdownOpen.set(false);
+    }
+    if (this.isProvinceDropdownOpen() && !target?.closest('.province-combobox')) {
+      this.isProvinceDropdownOpen.set(false);
+    }
+  }
+
+  onWardSearchInput(event: Event): void {
+    const val = (event.target as HTMLInputElement).value;
+    this.wardSearchQuery.set(val);
+  }
+
+  selectWard(w: VietmapWard): void {
+    this.form.ward = w.name_with_type;
+    this.isWardDropdownOpen.set(false);
+    this.wardSearchQuery.set('');
+    this.onWardChange(w.name_with_type);
+  }
+
+  clearWard(event?: MouseEvent): void {
+    if (event) event.stopPropagation();
+    this.form.ward = '';
+    this.wardSearchQuery.set('');
+  }
 
   constructor() {
     void this.load();
@@ -119,6 +237,10 @@ export class TenantsPage {
   openCreate(): void {
     this.editingTenant.set(null);
     this.form = this.emptyForm();
+    this.isWardDropdownOpen.set(false);
+    this.isProvinceDropdownOpen.set(false);
+    this.wardSearchQuery.set('');
+    this.provinceSearchQuery.set('');
     this.showModal.set(true);
   }
 
@@ -138,6 +260,10 @@ export class TenantsPage {
       birthDate: t.birth_date ? t.birth_date.substring(0, 10) : '',
       nationality: t.nationality || 'Việt Nam',
     };
+    this.isWardDropdownOpen.set(false);
+    this.isProvinceDropdownOpen.set(false);
+    this.wardSearchQuery.set('');
+    this.provinceSearchQuery.set('');
     this.showModal.set(true);
   }
 
