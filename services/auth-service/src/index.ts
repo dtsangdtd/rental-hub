@@ -13,6 +13,7 @@ async function main() {
 
   await runMigrations(pool, path.join(__dirname, '../migrations'), logger);
   await bus.connect();
+  bus.attachOutbox(pool);
   if (await seedAdmin(pool, env('ADMIN_EMAIL', 'admin@rental.local'), env('ADMIN_PASSWORD', 'admin12345'))) {
     logger.info('Seeded bootstrap admin user');
   }

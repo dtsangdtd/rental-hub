@@ -6,3 +6,4 @@ export * from './db';
 export * from './auth';
 export * from './events';
 export * from './contracts';
+export * from './outbox';

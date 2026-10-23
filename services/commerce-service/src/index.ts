@@ -24,6 +24,7 @@ async function main() {
 
   await runMigrations(pool, path.join(__dirname, '../migrations'), logger);
   await bus.connect();
+  bus.attachOutbox(pool);
   await registerConsumers(pool, bus, logger);
 
   const app = createApp(SERVICE);

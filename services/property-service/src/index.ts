@@ -23,6 +23,7 @@ async function main() {
 
   await runMigrations(pool, path.join(__dirname, '../migrations'), logger);
   await bus.connect();
+  bus.attachOutbox(pool);
 
   const app = createApp(SERVICE);
   app.use(requireAuth(jwtSecret));
