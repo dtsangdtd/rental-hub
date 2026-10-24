@@ -260,10 +260,10 @@
           <div class="inline-cat-box p-3 mb-2 card">
             <div class="small font-bold text-accent mb-2">✨ Tạo danh mục sản phẩm mới nhanh:</div>
             <div class="row gap-2">
-              <input class="input input-sm flex-1" placeholder="Tên danh mục (VD: Đồ ăn vặt, Nước ngọt, Giặt xả...)" [(ngModel)]="inlineCatName" [ngModelOptions]="{standalone: true}" />
-              <select class="input input-sm" style="width: 120px;" [(ngModel)]="inlineCatIcon" [ngModelOptions]="{standalone: true}">
-                @for (ic of availableIcons; track ic) { <option [value]="ic">{{ ic }}</option> }
-              </select>
+              <input class="input input-sm flex-1" placeholder="Tên danh mục (VD: Nhu yếu phẩm, Đồ uống, Gia dụng...)" [(ngModel)]="inlineCatName" [ngModelOptions]="{standalone: true}" />
+              <div style="width: 130px;">
+                <app-icon-picker [compact]="true" [(ngModel)]="inlineCatIcon" [ngModelOptions]="{standalone: true}" />
+              </div>
               <button type="button" class="btn btn-sm btn-primary" (click)="createInlineCategory()">Tạo ngay</button>
             </div>
           </div>
@@ -323,16 +323,12 @@
     <form class="form-grid" (ngSubmit)="saveCategory()" #cf="ngForm">
       <div class="field span-2">
         <label for="cat-name">Tên danh mục</label>
-        <input class="input" id="cat-name" name="name" required [(ngModel)]="catForm.name" placeholder="VD: Nước giải khát, Bánh kẹo, Gia vị..." />
+        <input class="input" id="cat-name" name="name" required [(ngModel)]="catForm.name" placeholder="VD: Nhu yếu phẩm, Tiêu hao, Đồ uống..." />
       </div>
 
       <div class="field">
-        <label for="cat-icon">Biểu tượng Icon</label>
-        <select class="input" id="cat-icon" name="iconName" [(ngModel)]="catForm.iconName">
-          @for (ic of availableIcons; track ic) {
-            <option [value]="ic">{{ ic }}</option>
-          }
-        </select>
+        <label>Biểu tượng Icon</label>
+        <app-icon-picker [(ngModel)]="catForm.iconName" [ngModelOptions]="{standalone: true}" />
       </div>
 
       <div class="field">

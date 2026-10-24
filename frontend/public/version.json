@@ -1,6 +1,6 @@
 {
-  "version": "1.1.0",
-  "buildTime": "2026-10-24T16:15:56.020Z",
-  "hash": "a0da73e-mvmlozjn",
-  "notes": "feat: implement transactional outbox pattern and event-driven architecture across services"
+  "version": "2.1.2",
+  "buildTime": "2026-10-24T16:39:27.446Z",
+  "hash": "34e1175-mvmmj8ls",
+  "notes": "feat: implement core services, frontend pages, and database migrations for rental hub platform"
 }

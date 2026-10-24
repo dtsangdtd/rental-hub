@@ -42,24 +42,57 @@ const ICONS: Record<string, string> = {
   scan: 'M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2',
   printer: 'M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z',
   camera: 'M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
-  soup: 'M12 21a9 9 0 0 0 9-9H3a9 9 0 0 0 9 9zM7 7V3M12 7V3M17 7V3',
-  cup: 'M17 8h1a4 4 0 1 1 0 8h-1M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8zM6 2v2M10 2v2M14 2v2',
-  cookie: 'M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5M8.5 8.5v.01M16 15.5v.01M12 12v.01M11 17v.01M7 13v.01',
-  droplet: 'M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z',
-  gift: 'M20 12v10H4V12M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z',
   filter: 'M22 3H2l8 9.46V19l4 2v-8.54L22 3z',
+  box: 'M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM3.27 6.96L12 12.01l8.73-5.05M12 22.08V12',
+  folder: 'M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z',
+  star: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+  heart: 'M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z',
+  coffee: 'M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8zM6 1v3M10 1v3M14 1v3',
+  utensils: 'M18 2v20M21 2v6a3 3 0 0 1-3 3M18 5h3M6 2v20M3 2v6a3 3 0 0 0 3 3M6 5H3',
+  wifi: 'M12 20h.01M2 8.82a15 15 0 0 1 20 0M5 12.86a10 10 0 0 1 14 0M8.5 16.5a5 5 0 0 1 7 0',
+  wrench: 'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z',
+  file: 'M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2zM14 2v6h6',
+  info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
+  gift: 'M20 12v10H4V12M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z',
+  cup: 'M6 2v14a4 4 0 0 0 4 4h4a4 4 0 0 0 4-4V2H6zM6 6h12',
+  droplet: 'M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z',
+  tv: 'M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM8 3l4 4 4-4',
+  grid: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
+  layers: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+  bookmark: 'M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z',
 };
+
+/** All statically defined SVG icon names in the design system */
+export const AVAILABLE_ICONS = Object.keys(ICONS).sort();
+export type IconName = keyof typeof ICONS;
+export function isKnownIcon(name: string): name is IconName {
+  return name in ICONS;
+}
+
+const EMOJI_OR_SYMBOL_REGEX = /\p{Extended_Pictographic}|\p{Emoji}/u;
 
 @Component({
   selector: 'app-icon',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { style: 'display:inline-flex;flex-shrink:0' },
-  template: `<svg [attr.width]="size()" [attr.height]="size()" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    [attr.stroke-width]="stroke()" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path [attr.d]="d()" /></svg>`,
+  host: { style: 'display:inline-flex;align-items:center;justify-content:center;flex-shrink:0' },
+  template: `
+    @if (isSvg()) {
+      <svg [attr.width]="size()" [attr.height]="size()" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        [attr.stroke-width]="stroke()" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path [attr.d]="d()" /></svg>
+    } @else if (isEmoji()) {
+      <span [style.font-size.px]="size()" style="line-height:1;display:inline-block;user-select:none">{{ name() }}</span>
+    } @else {
+      <!-- Fallback gracefully to default package icon if unknown name passed -->
+      <svg [attr.width]="size()" [attr.height]="size()" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        [attr.stroke-width]="stroke()" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path [attr.d]="d()" /></svg>
+    }
+  `,
 })
 export class Icon {
   readonly name = input.required<string>();
   readonly size = input(18);
   readonly stroke = input(2);
-  protected readonly d = computed(() => ICONS[this.name()] ?? ICONS['sparkle']);
+  protected readonly isSvg = computed(() => Boolean(ICONS[this.name()]));
+  protected readonly isEmoji = computed(() => EMOJI_OR_SYMBOL_REGEX.test(this.name()));
+  protected readonly d = computed(() => ICONS[this.name()] ?? ICONS['package']);
 }

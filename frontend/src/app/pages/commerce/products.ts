@@ -6,7 +6,8 @@ import { GroceryCategory, InventoryHub, ListResponse, Product } from '../../core
 import { SoundAlertService } from '../../core/sound-alert.service';
 import { ConfirmService, ToastService } from '../../core/ui.services';
 import { LabelPipe, MoneyPipe } from '../../shared/format';
-import { Icon } from '../../shared/icon';
+import { AVAILABLE_ICONS, Icon } from '../../shared/icon';
+import { IconPicker } from '../../shared/icon-picker';
 import { Modal } from '../../shared/overlays';
 import { Pagination } from '../../shared/pagination';
 
@@ -34,7 +35,7 @@ interface CategoryForm {
 
 @Component({
   selector: 'app-products',
-  imports: [FormsModule, MoneyPipe, LabelPipe, Icon, Modal, Pagination],
+  imports: [FormsModule, MoneyPipe, LabelPipe, Icon, Modal, Pagination, IconPicker],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './products.html',
   styleUrl: './products.scss',
@@ -77,7 +78,7 @@ export class ProductsPage implements OnInit {
     sku: '',
     name: '',
     description: '',
-    category: 'instant-food',
+    category: 'general',
     categoryId: null,
     price: null,
     currency: 'VND',
@@ -97,9 +98,7 @@ export class ProductsPage implements OnInit {
   protected inboundCostPrice = 0;
   protected readonly inboundLoading = signal(false);
 
-  protected readonly availableIcons = [
-    'package', 'soup', 'cup', 'cookie', 'droplet', 'gift', 'tag', 'sparkle', 'wallet', 'building'
-  ];
+  protected readonly availableIcons = AVAILABLE_ICONS;
 
   // Inline Category Quick Creation inside Product Form Modal
   protected readonly showInlineCatCreate = signal(false);
@@ -401,7 +400,7 @@ export class ProductsPage implements OnInit {
       sku: '',
       name: '',
       description: '',
-      category: cats[0]?.slug || 'instant-food',
+      category: cats[0]?.slug || 'general',
       categoryId: cats[0]?.id || null,
       price: null,
       currency: 'VND',
