@@ -1,132 +1,416 @@
 <div class="page">
   <header class="page-header">
     <div>
-      <div class="eyebrow">Commerce Management</div>
-      <h1>My Products &amp; Services</h1>
-      <p class="subtitle">Offer furniture, home appliances, or maintenance packages in the store</p>
+      <div class="eyebrow">Quản lý Cửa hàng &amp; Kho hàng</div>
+      <h1>Sản Phẩm &amp; Danh Mục Tạp Hóa</h1>
+      <p class="subtitle">Quản lý kho hàng, nhập kho bằng máy quét mã vạch và thiết lập danh mục sản phẩm</p>
     </div>
-    <div class="row">
-      <div class="search">
-        <app-icon name="search" [size]="16" />
-        <input class="input" id="seller-search" placeholder="Search SKU or name..." [(ngModel)]="q" />
-      </div>
-      <button class="btn btn-primary" id="product-new" (click)="openCreate()">
-        <app-icon name="plus" /> New product
+    <div class="row header-actions">
+      <button class="btn btn-secondary" id="open-inbound-btn" (click)="openInboundStock()">
+        <app-icon name="barcode" /> Nhập Kho (Quét Barcode)
       </button>
+
+      @if (activeTab() === 'products') {
+        <button class="btn btn-primary" id="product-new" (click)="openCreate()">
+          <app-icon name="plus" /> Thêm Sản Phẩm Mới
+        </button>
+      } @else {
+        <button class="btn btn-primary" id="category-new" (click)="openCreateCategory()">
+          <app-icon name="plus" /> Thêm Danh Mục Mới
+        </button>
+      }
     </div>
   </header>
 
-  <div class="card flush">
-    @if (loading()) {
-      <div class="skeleton-wrap stack">
-        @for (i of [1, 2, 3, 4]; track i) { <div class="skeleton" style="height:40px"></div> }
-      </div>
-    } @else if (filtered().length === 0) {
-      <div class="empty">
-        <div class="empty-icon"><app-icon name="tag" [size]="28" /></div>
-        <h3>No products listed</h3>
-        <p>Publish products to make them available in the community shop.</p>
-        <button class="btn btn-primary mt" (click)="openCreate()"><app-icon name="plus" /> Add Product</button>
-      </div>
-    } @else {
-      <div class="table-wrap">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Product</th>
-              <th>Category</th>
-              <th class="right">Price</th>
-              <th class="center">Stock</th>
-              <th>Status</th>
-              <th class="right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (p of filtered(); track p.id) {
-              <tr>
-                <td>
-                  <div class="primary-cell">{{ p.name }}</div>
-                  <div class="faint small mono">SKU: {{ p.sku }}</div>
-                </td>
-                <td><span class="badge neutral">{{ p.category | label }}</span></td>
-                <td class="right nowrap font-medium">{{ p.price | money: p.currency }}</td>
-                <td class="center font-medium" [class.text-danger]="p.stock === 0">
-                  {{ p.stock }}
-                </td>
-                <td>
-                  @if (p.active) {
-                    <span class="badge success">Active</span>
-                  } @else {
-                    <span class="badge neutral">Inactive</span>
-                  }
-                </td>
-                <td class="right">
-                  <div class="row actions-cell">
-                    <button class="btn btn-sm" [id]="'prod-edit-' + p.id" (click)="openEdit(p)">
-                      <app-icon name="edit" [size]="14" /> Edit
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-    }
+  <!-- Navigation Tabs -->
+  <div class="tabs-nav mb-4">
+    <button
+      class="tab-btn"
+      [class.active]="activeTab() === 'products'"
+      (click)="activeTab.set('products')"
+      id="tab-products"
+    >
+      <app-icon name="tag" [size]="16" />
+      <span>📦 Sản Phẩm &amp; Tồn Kho ({{ total() }})</span>
+    </button>
+    <button
+      class="tab-btn"
+      [class.active]="activeTab() === 'categories'"
+      (click)="activeTab.set('categories')"
+      id="tab-categories"
+    >
+      <app-icon name="package" [size]="16" />
+      <span>🏷️ Quản Lý Danh Mục Riêng ({{ categories().length }})</span>
+    </button>
   </div>
-</div>
 
-@if (editingProduct() !== undefined) {
-  <app-modal [title]="editingProduct() ? 'Edit Product' : 'New Product'" (closed)="editingProduct.set(undefined)">
-    <form class="form-grid" (ngSubmit)="saveProduct()" #f="ngForm">
-      <div class="field">
-        <label for="prod-sku">SKU Code</label>
-        <input class="input mono" id="prod-sku" name="sku" required maxlength="64" [disabled]="!!editingProduct()" [(ngModel)]="form.sku" placeholder="FURN-SOFA-01" />
+  <!-- TAB 1: PRODUCTS LIST -->
+  @if (activeTab() === 'products') {
+    <div class="card flush">
+      <div class="row toolbar p-3">
+        <div class="search">
+          <app-icon name="search" [size]="16" />
+          <input
+            class="input"
+            id="seller-search"
+            placeholder="Tìm theo SKU, tên sản phẩm hoặc mã vạch..."
+            [(ngModel)]="q"
+            (ngModelChange)="onSearchChange()"
+          />
+        </div>
       </div>
-      <div class="field">
-        <label for="prod-cat">Category</label>
-        <select class="input" id="prod-cat" name="category" [(ngModel)]="form.category">
-          <option value="furniture">Furniture</option>
-          <option value="appliance">Appliance</option>
-          <option value="service">Service</option>
-          <option value="general">General</option>
-        </select>
+
+      @if (loading()) {
+        <div class="skeleton-wrap stack p-4">
+          @for (i of [1, 2, 3, 4]; track i) { <div class="skeleton" style="height:48px"></div> }
+        </div>
+      } @else if (filtered().length === 0) {
+        <div class="empty">
+          <div class="empty-icon"><app-icon name="tag" [size]="32" /></div>
+          <h3>Chưa có sản phẩm nào</h3>
+          <p>Tạo sản phẩm để bắt đầu bán hàng tại quầy POS và trên cửa hàng trực tuyến.</p>
+          <button class="btn btn-primary mt" (click)="openCreate()"><app-icon name="plus" /> Thêm Sản Phẩm</button>
+        </div>
+      } @else {
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Sản phẩm &amp; Mã vạch</th>
+                <th>Danh mục</th>
+                <th class="right">Đơn giá</th>
+                <th class="center">Tồn kho</th>
+                <th>Trạng thái</th>
+                <th class="right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (p of filtered(); track p.id) {
+                <tr>
+                  <td>
+                    <div class="font-bold primary-cell">{{ p.name }}</div>
+                    <div class="faint small mono">
+                      SKU: {{ p.sku }}
+                      @if (p.barcode) {
+                        <span class="barcode-tag">📟 {{ p.barcode }}</span>
+                      }
+                    </div>
+                  </td>
+                  <td>
+                    <div class="d-flex align-items-center gap-1 flex-wrap">
+                      <span class="badge neutral d-inline-flex align-items-center gap-1">
+                        <app-icon [name]="p.category_icon || 'package'" [size]="13" />
+                        {{ p.category_name || (p.category | label) }}
+                      </span>
+                      @if (p.category_created_by) {
+                        <span class="badge success" style="font-size: 10px; padding: 2px 6px;">Chủ nhà</span>
+                      }
+                    </div>
+                  </td>
+                  <td class="right nowrap font-bold text-success primary-cell">
+                    {{ p.price | money: p.currency }}
+                  </td>
+                  <td class="center font-bold" [class.text-danger]="p.stock === 0">
+                    {{ p.stock }} {{ p.base_uom || 'cái' }}
+                  </td>
+                  <td>
+                    @if (p.active) {
+                      <span class="badge success">Kinh doanh</span>
+                    } @else {
+                      <span class="badge neutral">Ngừng bán</span>
+                    }
+                  </td>
+                  <td class="right">
+                    <div class="row actions-cell">
+                      <button class="btn btn-sm" [id]="'prod-edit-' + p.id" (click)="openEdit(p)">
+                        <app-icon name="edit" [size]="14" /> Chỉnh sửa
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <app-pagination
+          [total]="total()"
+          [page]="page()"
+          [pageSize]="pageSize()"
+          (pageChange)="onPageChange($event)"
+          (pageSizeChange)="onPageSizeChange($event)"
+        />
+      }
+    </div>
+  }
+
+  <!-- TAB 2: CATEGORIES LIST -->
+  @if (activeTab() === 'categories') {
+    <div class="card flush">
+      <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+        <div>
+          <h3 class="m-0">Danh Mục Sản Phẩm Tạp Hóa</h3>
+          <p class="muted small m-0">Tùy biến danh mục riêng để phân loại đồ ăn liền, nước uống, gia dụng, v.v.</p>
+        </div>
+        <button class="btn btn-sm btn-primary" (click)="openCreateCategory()">
+          <app-icon name="plus" [size]="14" /> Thêm danh mục
+        </button>
       </div>
-      <div class="field full">
-        <label for="prod-name">Product Name</label>
-        <input class="input" id="prod-name" name="name" required maxlength="200" [(ngModel)]="form.name" placeholder="Modern 3-seater Sofa" />
-      </div>
-      <div class="field full">
-        <label for="prod-desc">Description</label>
-        <textarea class="input" id="prod-desc" name="description" maxlength="2000" rows="3" [(ngModel)]="form.description"></textarea>
-      </div>
-      <div class="field">
-        <label for="prod-price">Price</label>
-        <input class="input" id="prod-price" name="price" type="number" min="0" step="0.01" required [(ngModel)]="form.price" />
-      </div>
-      <div class="field">
-        <label for="prod-curr">Currency</label>
-        <input class="input" id="prod-curr" name="currency" required minlength="3" maxlength="3" style="text-transform:uppercase" [(ngModel)]="form.currency" />
-      </div>
-      <div class="field">
-        <label for="prod-stock">Stock Quantity</label>
-        <input class="input" id="prod-stock" name="stock" type="number" min="0" step="1" required [(ngModel)]="form.stock" />
-      </div>
-      @if (editingProduct()) {
-        <div class="field">
-          <label for="prod-active">Store Visibility</label>
-          <select class="input" id="prod-active" name="active" [(ngModel)]="form.active">
-            <option [ngValue]="true">Active (Visible)</option>
-            <option [ngValue]="false">Inactive (Hidden)</option>
-          </select>
+
+      @if (catLoading()) {
+        <div class="skeleton-wrap stack p-4">
+          @for (i of [1, 2, 3]; track i) { <div class="skeleton" style="height:44px"></div> }
+        </div>
+      } @else if (categories().length === 0) {
+        <div class="empty">
+          <div class="empty-icon"><app-icon name="package" [size]="32" /></div>
+          <h3>Chưa có danh mục nào</h3>
+          <p>Tạo danh mục để phân loại mặt hàng trong cửa hàng và trên máy POS.</p>
+          <button class="btn btn-primary mt" (click)="openCreateCategory()"><app-icon name="plus" /> Tạo Danh Mục</button>
+        </div>
+      } @else {
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th style="width: 60px;">Biểu tượng</th>
+                <th>Tên danh mục &amp; Đường dẫn (Slug)</th>
+                <th>Nguồn gốc</th>
+                <th>Thứ tự</th>
+                <th>Mô tả</th>
+                <th class="right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (c of categories(); track c.id) {
+                <tr>
+                  <td>
+                    <div class="cat-icon-badge">
+                      <app-icon [name]="c.icon_name || 'package'" [size]="18" />
+                    </div>
+                  </td>
+                  <td>
+                    <div class="font-bold text-accent">{{ c.name }}</div>
+                    <div class="faint small mono">slug: {{ c.slug }}</div>
+                  </td>
+                  <td class="nowrap">
+                    @if (c.created_by) {
+                      <span class="badge success d-inline-flex align-items-center gap-1">
+                        <app-icon name="user" [size]="12" /> Do chủ nhà tạo
+                      </span>
+                    } @else {
+                      <span class="badge neutral d-inline-flex align-items-center gap-1">
+                        <app-icon name="building" [size]="12" /> Mặc định hệ thống
+                      </span>
+                    }
+                  </td>
+                  <td>
+                    <span class="badge neutral">#{{ c.sort_order }}</span>
+                  </td>
+                  <td>
+                    <span class="small faint">{{ c.description || '—' }}</span>
+                  </td>
+                  <td class="right nowrap">
+                    <div class="row actions-cell">
+                      @if (isOwner(c)) {
+                        <button class="btn btn-sm btn-ghost" (click)="openEditCategory(c)" title="Chỉnh sửa">
+                          <app-icon name="edit" [size]="14" /> Sửa
+                        </button>
+                        <button class="btn btn-sm btn-ghost text-danger" (click)="deleteCategory(c)" title="Xóa danh mục">
+                          <app-icon name="trash" [size]="14" /> Xóa
+                        </button>
+                      } @else {
+                        <span class="faint small italic">Cố định (Hệ thống)</span>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
         </div>
       }
-      <div class="row full form-actions">
-        <button type="button" class="btn btn-ghost" (click)="editingProduct.set(undefined)">Cancel</button>
-        <button class="btn btn-primary" id="prod-submit" [disabled]="saving() || f.invalid">
-          @if (saving()) { <span class="spinner"></span> } Save Product
+    </div>
+  }
+</div>
+
+<!-- MODAL 1: CREATE / EDIT PRODUCT -->
+@if (editingProduct() !== undefined) {
+  <app-modal [title]="editingProduct() ? 'Chỉnh Sửa Sản Phẩm' : 'Thêm Sản Phẩm Mới'" (closed)="editingProduct.set(undefined)">
+    <form class="form-grid" (ngSubmit)="saveProduct()" #f="ngForm">
+      <div class="field">
+        <label for="prod-sku">Mã SKU (Duy nhất)</label>
+        <input class="input mono" id="prod-sku" name="sku" required maxlength="64" [disabled]="!!editingProduct()" [(ngModel)]="form.sku" placeholder="VD: P-HAO-HAO" />
+      </div>
+
+      <div class="field">
+        <label for="prod-name">Tên sản phẩm</label>
+        <input class="input" id="prod-name" name="name" required maxlength="255" [(ngModel)]="form.name" placeholder="VD: Mì Hảo Hảo Tôm Chua Cay" />
+      </div>
+
+      <div class="field">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <label for="prod-cat" class="m-0 font-bold">Danh mục sản phẩm *</label>
+          <button type="button" class="btn btn-link btn-xs p-0 text-accent font-bold" (click)="toggleInlineCategoryCreate()">
+            {{ showInlineCatCreate() ? '▲ Đóng' : '+ Tạo danh mục mới' }}
+          </button>
+        </div>
+
+        @if (showInlineCatCreate()) {
+          <div class="inline-cat-box p-3 mb-2 card">
+            <div class="small font-bold text-accent mb-2">✨ Tạo danh mục sản phẩm mới nhanh:</div>
+            <div class="row gap-2">
+              <input class="input input-sm flex-1" placeholder="Tên danh mục (VD: Đồ ăn vặt, Nước ngọt, Giặt xả...)" [(ngModel)]="inlineCatName" [ngModelOptions]="{standalone: true}" />
+              <select class="input input-sm" style="width: 120px;" [(ngModel)]="inlineCatIcon" [ngModelOptions]="{standalone: true}">
+                @for (ic of availableIcons; track ic) { <option [value]="ic">{{ ic }}</option> }
+              </select>
+              <button type="button" class="btn btn-sm btn-primary" (click)="createInlineCategory()">Tạo ngay</button>
+            </div>
+          </div>
+        }
+
+        <select class="input" id="prod-cat" name="categoryId" [(ngModel)]="form.categoryId" required>
+          <option [ngValue]="null" disabled>-- Chọn danh mục liên kết (Foreign Key) --</option>
+          @for (cat of categories(); track cat.id) {
+            <option [value]="cat.id">
+              {{ cat.name }} ({{ cat.created_by ? 'Chủ nhà tạo' : 'Mặc định hệ thống' }})
+            </option>
+          }
+        </select>
+        <div class="hint faint small mt-1">Sản phẩm được liên kết khóa ngoại (Foreign Key) trực tiếp đến bảng danh mục (grocery_categories).</div>
+      </div>
+
+      <div class="field">
+        <label for="prod-barcode">Mã vạch Barcode (Bắn máy quét)</label>
+        <input class="input mono" id="prod-barcode" name="barcode" [(ngModel)]="form.barcode" placeholder="VD: 8934560111111" />
+      </div>
+
+      <div class="field">
+        <label for="prod-price">Giá bán (VNĐ)</label>
+        <input class="input" id="prod-price" name="price" type="number" required min="0" step="500" [(ngModel)]="form.price" placeholder="5000" />
+      </div>
+
+      <div class="field">
+        <label for="prod-stock">Số lượng tồn kho ban đầu</label>
+        <input class="input" id="prod-stock" name="stock" type="number" min="0" [(ngModel)]="form.stock" placeholder="0" />
+      </div>
+
+      <div class="field span-2">
+        <label for="prod-desc">Mô tả sản phẩm</label>
+        <textarea class="input" id="prod-desc" name="description" rows="2" [(ngModel)]="form.description" placeholder="Thông tin chi tiết, hương vị, hạn dùng..."></textarea>
+      </div>
+
+      <div class="field span-2">
+        <label class="checkbox-label">
+          <input type="checkbox" name="active" [(ngModel)]="form.active" />
+          <span>Kích hoạt bán tại quầy POS &amp; hiển thị trên cửa hàng</span>
+        </label>
+      </div>
+
+      <div class="form-actions span-2">
+        <button type="button" class="btn" (click)="editingProduct.set(undefined)">Hủy</button>
+        <button type="submit" class="btn btn-primary" [disabled]="saving() || !f.valid">
+          <app-icon name="check" /> {{ saving() ? 'Đang lưu...' : 'Lưu sản phẩm' }}
         </button>
       </div>
     </form>
+  </app-modal>
+}
+
+<!-- MODAL 2: CREATE / EDIT CATEGORY -->
+@if (editingCategory() !== undefined) {
+  <app-modal [title]="editingCategory() ? 'Chỉnh Sửa Danh Mục' : 'Thêm Danh Mục Mới'" (closed)="editingCategory.set(undefined)">
+    <form class="form-grid" (ngSubmit)="saveCategory()" #cf="ngForm">
+      <div class="field span-2">
+        <label for="cat-name">Tên danh mục</label>
+        <input class="input" id="cat-name" name="name" required [(ngModel)]="catForm.name" placeholder="VD: Nước giải khát, Bánh kẹo, Gia vị..." />
+      </div>
+
+      <div class="field">
+        <label for="cat-icon">Biểu tượng Icon</label>
+        <select class="input" id="cat-icon" name="iconName" [(ngModel)]="catForm.iconName">
+          @for (ic of availableIcons; track ic) {
+            <option [value]="ic">{{ ic }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="cat-sort">Thứ tự hiển thị</label>
+        <input class="input" id="cat-sort" name="sortOrder" type="number" [(ngModel)]="catForm.sortOrder" />
+      </div>
+
+      <div class="field span-2">
+        <label for="cat-desc">Mô tả ngắn</label>
+        <textarea class="input" id="cat-desc" name="description" rows="2" [(ngModel)]="catForm.description" placeholder="Mô tả danh mục hiển thị cho khách..."></textarea>
+      </div>
+
+      <div class="form-actions span-2">
+        <button type="button" class="btn" (click)="editingCategory.set(undefined)">Hủy</button>
+        <button type="submit" class="btn btn-primary" [disabled]="!cf.valid">
+          <app-icon name="check" /> Lưu danh mục
+        </button>
+      </div>
+    </form>
+  </app-modal>
+}
+
+<!-- MODAL 3: BARCODE INBOUND STOCKING -->
+@if (showInboundModal()) {
+  <app-modal title="Nhập Hàng Vào Kho (Quét Mã Vạch)" subtitle="Bắn tia quét barcode vào thùng/hộp sản phẩm để nhập kho tự động" (closed)="showInboundModal.set(false)">
+    <div class="inbound-modal-content">
+      <div class="field mb-3">
+        <label>Kho Hub nhập hàng</label>
+        <select class="input" [ngModel]="selectedHubId()" (ngModelChange)="selectedHubId.set($event)">
+          @for (h of hubs(); track h.id) {
+            <option [value]="h.id">{{ h.name }} ({{ h.address }})</option>
+          }
+        </select>
+      </div>
+
+      <div class="field mb-3">
+        <label>Mã vạch sản phẩm / Bao bì (Bắn máy quét)</label>
+        <div class="search barcode-input-wrap">
+          <app-icon name="barcode" [size]="18" />
+          <input
+            type="text"
+            class="input barcode-input mono font-bold"
+            placeholder="Quét mã vạch thùng/gói (VD: 8934560111128)..."
+            [(ngModel)]="inboundBarcode"
+            (keydown.enter)="$event.preventDefault()"
+          />
+        </div>
+        <div class="small faint mt-1">Hệ thống tự nhận diện quy cách thùng (x30 gói) hoặc gói lẻ.</div>
+      </div>
+
+      <div class="row gap-3 mb-3">
+        <div class="field flex-1">
+          <label>Số lượng nhập (Thùng / Gói)</label>
+          <input type="number" class="input font-bold" min="1" [(ngModel)]="inboundQty" />
+        </div>
+        <div class="field flex-1">
+          <label>Đơn giá vốn (VNĐ)</label>
+          <input type="number" class="input font-bold" min="0" step="1000" [(ngModel)]="inboundCostPrice" placeholder="VD: 110000" />
+        </div>
+      </div>
+
+      <div class="row gap-3 mb-4">
+        <div class="field flex-1">
+          <label>Mã số lô hàng (Batch No)</label>
+          <input type="text" class="input mono" [(ngModel)]="inboundBatchNo" placeholder="LOT-20261024" />
+        </div>
+        <div class="field flex-1">
+          <label>Hạn sử dụng (EXP Date) *</label>
+          <input type="date" class="input font-bold text-accent" [(ngModel)]="inboundExpDate" required />
+        </div>
+      </div>
+
+      <div class="modal-footer d-flex justify-content-end gap-2">
+        <button type="button" class="btn" (click)="showInboundModal.set(false)">Hủy</button>
+        <button type="button" class="btn btn-primary" (click)="submitInboundStock()" [disabled]="inboundLoading()">
+          <app-icon name="check" /> {{ inboundLoading() ? 'Đang nhập kho...' : 'Xác Nhận Nhập Kho' }}
+        </button>
+      </div>
+    </div>
   </app-modal>
 }

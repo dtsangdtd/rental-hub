@@ -19,6 +19,10 @@ export class Api {
     return firstValueFrom(this.http.post<T>(API_BASE + path, body));
   }
 
+  put<T>(path: string, body: unknown = {}): Promise<T> {
+    return firstValueFrom(this.http.put<T>(API_BASE + path, body));
+  }
+
   patch<T>(path: string, body: unknown): Promise<T> {
     return firstValueFrom(this.http.patch<T>(API_BASE + path, body));
   }

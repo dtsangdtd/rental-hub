@@ -11,8 +11,13 @@ Payload types: `packages/common/src/contracts.ts`.
 | `property.lease.terminated` | property | accounting | Lease terminated (unit becomes vacant) | `LeaseTerminatedData` |
 | `property.autoinvoice.toggled` | property | accounting | Auto-invoice toggle changed on property | `PropertyAutoInvoiceToggledData` |
 | `commerce.order.placed` | commerce | accounting | Order placed, stock reserved | `OrderPlacedData` |
+| `commerce.order.paid` | commerce | accounting | Order marked delivered/paid (COD, VietQR) | `OrderPaidData` |
 | `commerce.order.cancelled` | commerce | accounting | Pending order cancelled, stock restored | `OrderCancelledData` |
 | `accounting.invoice.paid` | accounting | commerce | Invoice fully paid | `InvoicePaidData` |
+| `grocery.order.created` | commerce | accounting, notification | Zero-friction grocery order created | `GroceryOrderCreatedData` |
+| `tenant.debt.charge_requested` | commerce | accounting | Landlord delivers order; bills debt to tenant monthly rent invoice | `TenantDebtChargeRequestedData` |
+| `inventory.threshold.depleted` | commerce | notification | Hub stock drops below min_alert_threshold | `InventoryThresholdDepletedData` |
+| `notification.landlord.alert` | commerce | notification | Broadcast alert to Landlords (Ding-dong chime, Telegram, Zalo) | `NotificationLandlordAlertData` |
 
 Queues: `accounting-service.events` and `commerce-service.events`.
 

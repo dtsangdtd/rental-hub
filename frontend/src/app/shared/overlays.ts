@@ -52,10 +52,10 @@ export class Modal {
       }
     </div>`,
   styles: `
-    .toasts { position: fixed; right: 20px; bottom: 20px; z-index: 200; display: flex; flex-direction: column; gap: 10px; max-width: 400px; }
-    .toast { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; cursor: pointer;
-      background: rgba(23, 26, 51, .92); border: 1px solid var(--border-strong); backdrop-filter: blur(12px);
-      box-shadow: var(--shadow); animation: pop .3s var(--ease) both; font-weight: 500; }
+    .toasts { position: fixed; right: 20px; top: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; max-width: 420px; pointer-events: none; }
+    .toast { display: flex; gap: 10px; align-items: flex-start; padding: 12px 16px; border-radius: 14px; cursor: pointer; pointer-events: auto;
+      background: rgba(23, 26, 51, .96); border: 1px solid var(--border-strong); backdrop-filter: blur(14px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06) inset; animation: pop .3s var(--ease) both; font-weight: 500; }
     .dot { width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; flex-shrink: 0; color: #fff; }
     .success .dot { background: var(--success); } .error .dot { background: var(--danger); } .info .dot { background: var(--primary); }
   `,

@@ -1,130 +1,356 @@
 <div class="page">
   <a routerLink="/shop" class="btn btn-ghost btn-sm mb">
-    <app-icon name="back" [size]="15" /> Continue shopping
+    <app-icon name="back" [size]="15" /> Tiếp tục chọn món
   </a>
 
-  <header class="page-header">
-    <div>
-      <div class="eyebrow">Commerce</div>
-      <h1>Shopping Cart</h1>
-      <p class="subtitle">{{ cart.count() }} item(s) selected</p>
-    </div>
-    @if (cart.lines().length > 0) {
-      <button class="btn btn-ghost btn-sm text-danger" (click)="cart.clear()">
-        <app-icon name="trash" [size]="15" /> Empty cart
-      </button>
-    }
-  </header>
+  @if (orderSuccess(); as succ) {
+    <!-- Order Success Confirmation Card -->
+    <div class="card success-card">
+      <div class="success-icon-wrap">
+        <app-icon name="check" [size]="42" />
+      </div>
+      <h2>Đặt Hàng Thành Công!</h2>
+      <p class="success-subtitle">
+        {{ succ.message }}
+      </p>
 
-  @if (cart.lines().length === 0) {
-    <div class="card empty">
-      <div class="empty-icon"><app-icon name="cart" [size]="28" /></div>
-      <h3>Your cart is empty</h3>
-      <p>Explore amenities, furniture and repair services for your home.</p>
-      <a routerLink="/shop" class="btn btn-primary mt"><app-icon name="bag" /> Browse Shop</a>
+      <div class="order-summary-box">
+        <div class="row info-row">
+          <span class="muted">Mã đơn hàng:</span>
+          <span class="mono font-bold">{{ succ.orderNumber }}</span>
+        </div>
+        <div class="row info-row">
+          <span class="muted">Giao đến:</span>
+          <span class="font-bold">Phòng {{ succ.roomNumber }}</span>
+        </div>
+        <div class="row info-row">
+          <span class="muted">Thời gian dự kiến:</span>
+          <span class="text-success font-bold">~ {{ succ.estimatedDelivery }}</span>
+        </div>
+        <div class="row info-row">
+          <span class="muted">Phương thức thanh toán:</span>
+          <span class="font-bold">
+            @if (succ.paymentMethod === 'DEBT_ADDED_TO_RENT') {
+              📋 Ghi nợ gộp tiền phòng tháng này
+            } @else if (succ.paymentMethod === 'VIETQR') {
+              📲 Chuyển khoản VietQR khi nhận
+            } @else {
+              💵 Tiền mặt (COD)
+            }
+          </span>
+        </div>
+        <div class="row info-row total-row">
+          <span class="muted">Tổng tiền:</span>
+          <span class="price-val">{{ succ.totalAmount | money: succ.currency }}</span>
+        </div>
+      </div>
+
+      <div class="success-actions mt">
+        <a [routerLink]="['/orders', succ.orderId]" class="btn btn-primary">
+          <app-icon name="package" /> Theo dõi đơn hàng
+        </a>
+        <button class="btn btn-secondary" (click)="resetOrder()">
+          <app-icon name="bag" /> Mua sắm tiếp
+        </button>
+      </div>
     </div>
   } @else {
-    @if (cart.mixedCurrency()) {
-      <div class="alert danger mb">
-        <app-icon name="alert" [size]="16" />
-        <span>
-          Orders cannot combine different currencies ({{ cart.currencies().join(', ') }}).
-          Please remove items to keep a single currency before placing your order.
-        </span>
+    <header class="page-header">
+      <div>
+        <div class="eyebrow">Commerce &amp; Quick-Delivery</div>
+        <h1>Giỏ Hàng Tạp Hóa</h1>
+        <p class="subtitle">{{ cart.count() }} sản phẩm đã chọn</p>
+      </div>
+      @if (cart.lines().length > 0) {
+        <button class="btn btn-ghost btn-sm text-danger" (click)="cart.clear()">
+          <app-icon name="trash" [size]="15" /> Xóa toàn bộ giỏ
+        </button>
+      }
+    </header>
+
+    @if (cart.lines().length === 0) {
+      <div class="card empty">
+        <div class="empty-icon"><app-icon name="cart" [size]="28" /></div>
+        <h3>Giỏ hàng đang trống</h3>
+        <p>Chọn các món ăn vặt, mì tôm, nước giải khát hoặc nhu yếu phẩm phòng trọ.</p>
+        <a routerLink="/shop" class="btn btn-primary mt"><app-icon name="bag" /> Xem Cửa Hàng</a>
+      </div>
+    } @else {
+      @if (cart.mixedCurrency()) {
+        <div class="alert danger mb">
+          <app-icon name="alert" [size]="16" />
+          <span>
+            Đơn hàng không được kết hợp nhiều đơn vị tiền tệ khác nhau.
+          </span>
+        </div>
+      }
+
+      <div class="grid cart-layout">
+        <!-- Cart items list -->
+        <div class="card flush">
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Sản phẩm &amp; Quy cách</th>
+                  <th class="right">Đơn giá</th>
+                  <th class="center">Số lượng</th>
+                  <th class="right">Thành tiền</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (line of cart.lines(); track (line.product.id + (line.uom?.id || ''))) {
+                  <tr>
+                    <td>
+                      <div class="primary-cell">{{ line.product.name }}</div>
+                      <div class="faint small">
+                        Quy cách: <span class="badge uom-badge">{{ line.uom?.uom_name || line.product.base_uom || 'Cái' }}</span>
+                        · {{ line.product.category_name || line.product.category }}
+                      </div>
+                    </td>
+                    <td class="right nowrap">
+                      {{ (line.uom ? line.uom.retail_price : line.product.price) | money: line.product.currency }}
+                    </td>
+                    <td class="center">
+                      <div class="qty-pill">
+                        <button
+                          class="btn btn-ghost btn-icon btn-sm"
+                          (click)="cart.setQuantity(line.product.id, line.quantity - 1, line.uom?.id)"
+                        >
+                          <app-icon name="minus" [size]="13" />
+                        </button>
+                        <span class="qty-num">{{ line.quantity }}</span>
+                        <button
+                          class="btn btn-ghost btn-icon btn-sm"
+                          (click)="cart.setQuantity(line.product.id, line.quantity + 1, line.uom?.id)"
+                        >
+                          <app-icon name="plus" [size]="13" />
+                        </button>
+                      </div>
+                    </td>
+                    <td class="right primary-cell nowrap">
+                      {{ ((line.uom ? line.uom.retail_price : line.product.price) * line.quantity) | money: line.product.currency }}
+                    </td>
+                    <td class="right">
+                      <button
+                        class="btn btn-ghost btn-icon btn-sm text-danger"
+                        title="Xóa"
+                        (click)="cart.remove(line.product.id, line.uom?.id)"
+                      >
+                        <app-icon name="x" [size]="15" />
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Zero-Friction Checkout Box -->
+        <div class="stack">
+          <div class="card checkout-card">
+            <div class="checkout-header">
+              <h3>Thông Tin Nhận Hàng</h3>
+              <span class="badge zero-badge"><app-icon name="zap" [size]="12" /> Zero-Friction</span>
+            </div>
+            <p class="faint small mb">Không cần OTP · Tự động ghi nhớ cho các lần đặt sau</p>
+
+            <!-- Customer Type Toggle -->
+            <div class="customer-type-toggle mb">
+              <button
+                type="button"
+                class="type-btn"
+                [class.active]="customerType() === 'TENANT'"
+                (click)="setCustomerType('TENANT')"
+              >
+                <app-icon name="home" [size]="15" />
+                <span>Khách thuê tòa nhà</span>
+              </button>
+              <button
+                type="button"
+                class="type-btn"
+                [class.active]="customerType() === 'RETAIL'"
+                (click)="setCustomerType('RETAIL')"
+              >
+                <app-icon name="mapPin" [size]="15" />
+                <span>Khách vãng lai / Tận nơi</span>
+              </button>
+            </div>
+
+            @if (customerType() === 'TENANT') {
+              <div class="field">
+                <label for="order-hub">Tòa nhà / Ký túc xá (*)</label>
+                <select class="input" id="order-hub" [(ngModel)]="propertyId">
+                  <option value="" disabled>-- Chọn tòa nhà của bạn --</option>
+                  @for (h of hubs(); track h.id) {
+                    <option [value]="h.property_id">{{ h.name }}</option>
+                  }
+                </select>
+              </div>
+
+              <div class="row form-row">
+                <div class="field flex-1">
+                  <label for="order-room">Số phòng (*)</label>
+                  <input
+                    class="input"
+                    id="order-room"
+                    placeholder="Ví dụ: P.302, 101"
+                    [(ngModel)]="roomNumber"
+                  />
+                </div>
+
+                <div class="field flex-1">
+                  <label for="order-phone">Số điện thoại (*)</label>
+                  <input
+                    class="input"
+                    id="order-phone"
+                    placeholder="09xxxxxxxx"
+                    [(ngModel)]="recipientPhone"
+                  />
+                </div>
+              </div>
+            } @else {
+              <!-- Retail Guest Fields -->
+              <div class="field">
+                <label for="order-address">Địa chỉ giao hàng chi tiết (*)</label>
+                <input
+                  class="input"
+                  id="order-address"
+                  placeholder="Số nhà, tên đường, khu vực xung quanh..."
+                  [(ngModel)]="recipientAddress"
+                />
+              </div>
+
+              <div class="field">
+                <label for="order-phone">Số điện thoại nhận hàng (*)</label>
+                <input
+                  class="input"
+                  id="order-phone"
+                  placeholder="09xxxxxxxx (Dùng để tra cứu lịch sử đơn)"
+                  [(ngModel)]="recipientPhone"
+                />
+              </div>
+            }
+
+            <div class="field">
+              <label for="order-name">Họ và tên người nhận (*)</label>
+              <input
+                class="input"
+                id="order-name"
+                placeholder="Tên khách nhận hàng"
+                [(ngModel)]="recipientName"
+              />
+            </div>
+
+            <!-- Delivery Method -->
+            <div class="field">
+              <label>Hình thức nhận hàng</label>
+              <div class="method-options">
+                @if (customerType() === 'TENANT') {
+                  <label class="method-card" [class.selected]="deliveryType() === 'ROOM_DELIVERY'">
+                    <input type="radio" name="delType" value="ROOM_DELIVERY" [(ngModel)]="deliveryType" />
+                    <div class="method-content">
+                      <span class="method-title">🚪 Giao tận cửa phòng</span>
+                      <span class="method-sub">Nhanh 15-30 phút</span>
+                    </div>
+                  </label>
+                  <label class="method-card" [class.selected]="deliveryType() === 'LOBBY_PICKUP'">
+                    <input type="radio" name="delType" value="LOBBY_PICKUP" [(ngModel)]="deliveryType" />
+                    <div class="method-content">
+                      <span class="method-title">🏢 Lấy tại sảnh / bảo vệ</span>
+                      <span class="method-sub">Tự nhận khi về phòng</span>
+                    </div>
+                  </label>
+                } @else {
+                  <label class="method-card selected">
+                    <input type="radio" name="delType" value="STANDARD" checked />
+                    <div class="method-content">
+                      <span class="method-title">🛵 Giao tiêu chuẩn tận nơi</span>
+                      <span class="method-sub">Giao nhanh khu vực lân cận</span>
+                    </div>
+                  </label>
+                }
+              </div>
+            </div>
+
+            <!-- Payment Method -->
+            <div class="field">
+              <label>Phương thức thanh toán</label>
+              <div class="method-options">
+                @if (customerType() === 'TENANT') {
+                  <label class="method-card debt-card" [class.selected]="paymentMethod() === 'DEBT_ADDED_TO_RENT'">
+                    <input type="radio" name="payMethod" value="DEBT_ADDED_TO_RENT" [(ngModel)]="paymentMethod" />
+                    <div class="method-content">
+                      <span class="method-title">📋 Gộp tiền phòng cuối tháng</span>
+                      <span class="method-sub text-accent">Không cần trả ngay · Khấu trừ hóa đơn phòng</span>
+                    </div>
+                  </label>
+                }
+
+                <label class="method-card" [class.selected]="paymentMethod() === 'VIETQR'">
+                  <input type="radio" name="payMethod" value="VIETQR" [(ngModel)]="paymentMethod" />
+                  <div class="method-content">
+                    <span class="method-title">📲 Quét mã VietQR chuyển khoản</span>
+                    <span class="method-sub">Chuyển qua App ngân hàng khi nhận</span>
+                  </div>
+                </label>
+
+                <label class="method-card" [class.selected]="paymentMethod() === 'COD'">
+                  <input type="radio" name="payMethod" value="COD" [(ngModel)]="paymentMethod" />
+                  <div class="method-content">
+                    <span class="method-title">💵 Tiền mặt khi nhận (COD)</span>
+                    <span class="method-sub">Trả trực tiếp cho người giao</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="order-note">Ghi chú giao hàng (tùy chọn)</label>
+              <textarea
+                class="input"
+                id="order-note"
+                placeholder="Ví dụ: Để trước cửa phòng, gọi trước 5 phút..."
+                [(ngModel)]="note"
+                rows="2"
+              ></textarea>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="row summary-row">
+              <span class="muted">Tạm tính ({{ cart.count() }} món)</span>
+              <span class="spacer"></span>
+              <span>{{ cart.total() | money: mainCurrency() }}</span>
+            </div>
+            <div class="row summary-row">
+              <span class="muted">Phí giao tận phòng</span>
+              <span class="spacer"></span>
+              <span class="text-success font-bold">Miễn phí (Tòa nhà)</span>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="row summary-row total">
+              <span>Tổng thanh toán</span>
+              <span class="spacer"></span>
+              <span class="total-val">{{ cart.total() | money: mainCurrency() }}</span>
+            </div>
+
+            <button
+              class="btn btn-primary btn-block mt checkout-btn"
+              id="checkout-submit"
+              [disabled]="submitting() || cart.mixedCurrency()"
+              (click)="checkout()"
+            >
+              @if (submitting()) { <span class="spinner"></span> }
+              <app-icon name="zap" [size]="16" /> Đặt Hàng Tức Thì (Zero-Friction)
+            </button>
+          </div>
+        </div>
       </div>
     }
-
-    <div class="grid cart-layout">
-      <!-- Cart items list -->
-      <div class="card flush">
-        <div class="table-wrap">
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th class="right">Price</th>
-                <th class="center">Quantity</th>
-                <th class="right">Subtotal</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (line of cart.lines(); track line.product.id) {
-                <tr>
-                  <td>
-                    <div class="primary-cell">{{ line.product.name }}</div>
-                    <div class="faint small">SKU: {{ line.product.sku }} · {{ line.product.category }}</div>
-                  </td>
-                  <td class="right nowrap">{{ line.product.price | money: line.product.currency }}</td>
-                  <td class="center">
-                    <div class="qty-pill">
-                      <button class="btn btn-ghost btn-icon btn-sm" (click)="cart.setQuantity(line.product.id, line.quantity - 1)">
-                        <app-icon name="minus" [size]="13" />
-                      </button>
-                      <span class="qty-num">{{ line.quantity }}</span>
-                      <button class="btn btn-ghost btn-icon btn-sm" [disabled]="line.quantity >= line.product.stock" (click)="cart.setQuantity(line.product.id, line.quantity + 1)">
-                        <app-icon name="plus" [size]="13" />
-                      </button>
-                    </div>
-                  </td>
-                  <td class="right primary-cell nowrap">
-                    {{ (line.product.price * line.quantity) | money: line.product.currency }}
-                  </td>
-                  <td class="right">
-                    <button class="btn btn-ghost btn-icon btn-sm text-danger" title="Remove" (click)="cart.remove(line.product.id)">
-                      <app-icon name="x" [size]="15" />
-                    </button>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Checkout summary box -->
-      <div class="stack">
-        <div class="card summary-card">
-          <h3>Order Summary</h3>
-          <div class="divider"></div>
-
-          <div class="row summary-row">
-            <span class="muted">Items ({{ cart.count() }})</span>
-            <span class="spacer"></span>
-            <span>{{ cart.total() | money: mainCurrency() }}</span>
-          </div>
-          <div class="row summary-row">
-            <span class="muted">Estimated Delivery</span>
-            <span class="spacer"></span>
-            <span class="text-success">Free</span>
-          </div>
-
-          <div class="divider"></div>
-
-          <div class="row summary-row total">
-            <span>Total Due</span>
-            <span class="spacer"></span>
-            <span class="total-val">{{ cart.total() | money: mainCurrency() }}</span>
-          </div>
-
-          <div class="field mt">
-            <label for="order-note">Delivery / Special notes (optional)</label>
-            <textarea class="input" id="order-note" placeholder="Room number, preferred delivery hours, or contact notes..." [(ngModel)]="note" rows="3"></textarea>
-          </div>
-
-          <div class="alert info mt">
-            <app-icon name="sparkle" [size]="16" />
-            <span class="small">
-              Placing this order automatically creates a matching invoice in Accounting.
-            </span>
-          </div>
-
-          <button class="btn btn-primary btn-block mt checkout-btn" id="checkout-submit" [disabled]="submitting() || cart.mixedCurrency()" (click)="checkout()">
-            @if (submitting()) { <span class="spinner"></span> }
-            Place Order &amp; Generate Invoice
-          </button>
-        </div>
-      </div>
-    </div>
   }
 </div>

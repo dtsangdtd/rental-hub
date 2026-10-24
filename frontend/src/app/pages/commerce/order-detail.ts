@@ -27,6 +27,7 @@ export class OrderDetailPage {
   protected readonly invoice = signal<Invoice | null>(null);
 
   protected readonly isAdmin = computed(() => this.auth.hasRole('admin'));
+  protected readonly isLoggedIn = computed(() => this.auth.isLoggedIn());
 
   protected readonly canCancel = computed(() => {
     const o = this.order();
@@ -41,24 +42,54 @@ export class OrderDetailPage {
     return this.isAdmin() && o?.status === 'paid';
   });
 
+  protected readonly canDeliver = computed(() => {
+    const o = this.order();
+    if (!o || o.status !== 'pending') return false;
+    const u = this.auth.user();
+    if (!u) return false;
+    return u.role === 'admin' || u.role === 'landlord';
+  });
+
   constructor() {
     effect(() => void this.load(this.id()));
+  }
+
+  protected async deliver() {
+    const o = this.order();
+    if (!o) return;
+    const ok = await this.confirm.ask({
+      title: `Xác nhận đã giao đơn #${o.order_number || o.id.slice(0, 8)}?`,
+      message:
+        o.payment_method === 'DEBT_ADDED_TO_RENT'
+          ? 'Đơn hàng sẽ chuyển sang Đã giao và tự động gộp vào công nợ hóa đơn phòng tháng này của khách thuê.'
+          : 'Xác nhận đã bàn giao hàng thành công tận phòng.',
+      confirmText: 'Xác nhận đã giao',
+    });
+    if (!ok) return;
+
+    try {
+      await this.api.post(`/commerce/orders/${o.id}/deliver`);
+      this.toast.success('Đã xác nhận giao hàng thành công!');
+      await this.load(o.id);
+    } catch (err) {
+      this.toast.error(errorMessage(err));
+    }
   }
 
   protected async cancel() {
     const o = this.order();
     if (!o) return;
     const ok = await this.confirm.ask({
-      title: 'Cancel this order?',
-      message: 'Pending items will be returned to stock, and the linked invoice will be voided.',
-      confirmText: 'Cancel Order',
+      title: 'Hủy đơn hàng này?',
+      message: 'Các sản phẩm sẽ được hoàn lại kho và hóa đơn liên kết (nếu có) sẽ được hủy.',
+      confirmText: 'Hủy đơn hàng',
       danger: true,
     });
     if (!ok) return;
 
     try {
       await this.api.post(`/commerce/orders/${o.id}/cancel`);
-      this.toast.success('Order cancelled');
+      this.toast.success('Đã hủy đơn hàng');
       await this.load(o.id);
     } catch (err) {
       this.toast.error(errorMessage(err));
@@ -94,7 +125,7 @@ export class OrderDetailPage {
       }
     } catch (err) {
       this.toast.error(errorMessage(err));
-      void this.router.navigate(['/orders']);
+      void this.router.navigate([this.auth.isLoggedIn() ? '/orders' : '/guest-orders']);
     }
   }
 }

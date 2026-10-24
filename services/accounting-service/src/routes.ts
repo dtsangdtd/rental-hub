@@ -12,6 +12,8 @@ import {
   forbidden,
   InvoicePaidData,
   notFound,
+  paginatedResponse,
+  parsePagination,
   requireRole,
   transaction,
   validate,
@@ -56,18 +58,23 @@ const expenseSchema = z.object({
 });
 const invoiceQuery = z.object({
   status: z.enum(['unpaid', 'partial', 'paid', 'void']).optional(),
+  kind: z.enum(['rent', 'deposit', 'order', 'other', 'all']).optional(),
   period: period.optional(),
   referenceId: uuid.optional(),
+  q: z.string().optional(),
+  search: z.string().optional(),
 });
 const reportQuery = z.object({ from: isoDate, to: isoDate });
 
-/** Row-level visibility of invoices: strictly own data only */
+/** Row-level visibility of invoices: admin and accountant see all, landlords own, tenants their customer invoices */
 function invoiceScope(u: AuthUser, startIndex: number): { sql: string; params: unknown[] } {
+  if (u.role === 'admin' || u.role === 'accountant') return { sql: '1=1', params: [] };
   if (u.role === 'tenant') return { sql: `customer_id = $${startIndex}`, params: [u.id] };
   return { sql: `owner_id = $${startIndex}`, params: [u.id] };
 }
 
 function canSeeInvoice(u: AuthUser, inv: { owner_id: string | null; customer_id: string | null }) {
+  if (u.role === 'admin' || u.role === 'accountant') return true;
   return inv.owner_id === u.id || inv.customer_id === u.id;
 }
 
@@ -81,17 +88,36 @@ export function buildRouter(deps: { pool: Pool; bus: EventBus }): Router {
     '/invoices',
     asyncHandler(async (req, res) => {
       const q = validate(invoiceQuery, req.query);
+      const { page, limit, offset } = parsePagination(req.query);
       const scope = invoiceScope(currentUser(req), 1);
       const params = [...scope.params];
       const where = [scope.sql];
       if (q.status) where.push(`status = $${params.push(q.status)}`);
+      if (q.kind && q.kind !== 'all') where.push(`kind = $${params.push(q.kind)}`);
       if (q.period) where.push(`period = $${params.push(q.period)}`);
       if (q.referenceId) where.push(`reference_id = $${params.push(q.referenceId)}`);
-      const { rows } = await pool.query(
-        `SELECT * FROM invoices WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT 500`,
+      const searchTerm = (q.q || q.search)?.trim();
+      if (searchTerm) {
+        params.push(`%${searchTerm}%`);
+        where.push(`(number ILIKE $${params.length} OR description ILIKE $${params.length})`);
+      }
+
+      const countRes = await pool.query(
+        `SELECT COUNT(*)::int AS total FROM invoices WHERE ${where.join(' AND ')}`,
         params,
       );
-      res.json({ items: rows });
+      const total = countRes.rows[0]?.total ?? 0;
+
+      params.push(limit);
+      const limitIdx = params.length;
+      params.push(offset);
+      const offsetIdx = params.length;
+
+      const { rows } = await pool.query(
+        `SELECT * FROM invoices WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+        params,
+      );
+      res.json(paginatedResponse(rows, total, page, limit));
     }),
   );
 
@@ -185,7 +211,7 @@ export function buildRouter(deps: { pool: Pool; bus: EventBus }): Router {
       const { rows } = await pool.query('SELECT * FROM invoices WHERE id = $1', [id]);
       const inv = rows[0];
       if (!inv) throw notFound('Invoice');
-      if (inv.owner_id !== user.id) throw forbidden();
+      if (user.role !== 'admin' && inv.owner_id !== user.id) throw forbidden();
       if (inv.amount_paid > 0) throw conflict('INVOICE_HAS_PAYMENTS', 'Cannot void an invoice with payments');
       const updated = await pool.query(`UPDATE invoices SET status = 'void' WHERE id = $1 RETURNING *`, [id]);
       res.json(updated.rows[0]);
@@ -205,7 +231,7 @@ export function buildRouter(deps: { pool: Pool; bus: EventBus }): Router {
         const { rows } = await db.query('SELECT * FROM invoices WHERE id = $1 FOR UPDATE', [id]);
         const inv = rows[0];
         if (!inv) throw notFound('Invoice');
-        if (inv.owner_id !== user.id) throw forbidden();
+        if (user.role !== 'admin' && user.role !== 'accountant' && inv.owner_id !== user.id) throw forbidden();
         if (inv.status === 'void' || inv.status === 'paid') {
           throw conflict('INVOICE_CLOSED', `Invoice is ${inv.status}`);
         }
@@ -246,8 +272,42 @@ export function buildRouter(deps: { pool: Pool; bus: EventBus }): Router {
     finance,
     asyncHandler(async (req, res) => {
       const user = currentUser(req);
-      const { rows } = await pool.query('SELECT * FROM expenses WHERE owner_id = $1 ORDER BY spent_on DESC LIMIT 500', [user.id]);
-      res.json({ items: rows });
+      const { page, limit, offset } = parsePagination(req.query);
+
+      const conditions: string[] = [];
+      const params: any[] = [];
+
+      if (user.role !== 'admin') {
+        params.push(user.id);
+        conditions.push(`owner_id = $${params.length}`);
+      }
+
+      if (req.query.category && req.query.category !== 'all') {
+        params.push(req.query.category);
+        conditions.push(`category = $${params.length}`);
+      }
+
+      const expSearch = (req.query.search || req.query.q) as string | undefined;
+      if (expSearch?.trim()) {
+        params.push(`%${expSearch.trim()}%`);
+        conditions.push(`description ILIKE $${params.length}`);
+      }
+
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+      const countRes = await pool.query(`SELECT COUNT(*)::int AS total FROM expenses ${whereClause}`, params);
+      const total = countRes.rows[0]?.total ?? 0;
+
+      params.push(limit);
+      const limitIdx = params.length;
+      params.push(offset);
+      const offsetIdx = params.length;
+
+      const { rows } = await pool.query(
+        `SELECT * FROM expenses ${whereClause} ORDER BY spent_on DESC LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+        params,
+      );
+      res.json(paginatedResponse(rows, total, page, limit));
     }),
   );
 
@@ -274,7 +334,7 @@ export function buildRouter(deps: { pool: Pool; bus: EventBus }): Router {
       const { from, to } = validate(reportQuery, req.query);
       if (from > to) throw badRequest('from must be <= to');
       const user = currentUser(req);
-      const ownerParam = user.id;
+      const ownerParam = user.role === 'admin' || user.role === 'accountant' ? null : user.id;
 
       const income = await pool.query(
         `SELECT i.currency, i.kind, COALESCE(SUM(p.amount), 0) AS total

@@ -8,10 +8,11 @@ import { ToastService } from '../../core/ui.services';
 import { MANAGE_PROPERTY } from '../../nav';
 import { Icon } from '../../shared/icon';
 import { Modal } from '../../shared/overlays';
+import { Pagination } from '../../shared/pagination';
 
 @Component({
   selector: 'app-properties',
-  imports: [FormsModule, RouterLink, Icon, Modal],
+  imports: [FormsModule, RouterLink, Icon, Modal, Pagination],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './properties.html',
   styleUrl: './properties.scss',
@@ -23,6 +24,9 @@ export class PropertiesPage {
   private readonly cdr = inject(ChangeDetectorRef);
 
   protected readonly items = signal<Property[]>([]);
+  protected readonly page = signal(1);
+  protected readonly pageSize = signal(10);
+  protected readonly total = signal(0);
   protected readonly loading = signal(true);
   protected readonly saving = signal(false);
   protected readonly showCreate = signal(false);
@@ -30,10 +34,7 @@ export class PropertiesPage {
   protected readonly query = signal('');
   protected get q() { return this.query(); }
   protected set q(v: string) { this.query.set(v); }
-  protected readonly filtered = computed(() => {
-    const q = this.query().toLowerCase().trim();
-    return q ? this.items().filter((p) => (p.name + ' ' + p.address).toLowerCase().includes(q)) : this.items();
-  });
+  protected readonly filtered = computed(() => this.items());
   protected readonly totalUnits = computed(() => this.items().reduce((n, p) => n + (p.unit_count ?? 0), 0));
   protected form = {
     name: '',
@@ -140,9 +141,32 @@ export class PropertiesPage {
     }
   }
 
+  protected onSearchChange() {
+    this.page.set(1);
+    void this.load();
+  }
+
+  protected onPageChange(p: number) {
+    this.page.set(p);
+    void this.load();
+  }
+
+  protected onPageSizeChange(s: number) {
+    this.pageSize.set(s);
+    this.page.set(1);
+    void this.load();
+  }
+
   private async load() {
+    this.loading.set(true);
     try {
-      this.items.set((await this.api.get<ListResponse<Property>>('/property/properties')).items);
+      const res = await this.api.get<ListResponse<Property>>('/property/properties', {
+        page: this.page(),
+        limit: this.pageSize(),
+        q: this.query().trim() || undefined,
+      });
+      this.items.set(res.items || []);
+      this.total.set(res.total ?? (res.items?.length || 0));
     } catch (err) {
       this.toast.error(errorMessage(err));
     } finally {

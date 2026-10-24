@@ -30,6 +30,30 @@ export function validate<S extends ZodTypeAny>(schema: S, data: unknown): z.outp
   return result.data;
 }
 
+/** Parses `page` (default 1) and `limit` (default 20, max 200) from query params */
+export function parsePagination(query: unknown, defaultLimit = 20) {
+  const q = query && typeof query === 'object' ? query : {};
+  const pageRaw = (q as Record<string, unknown>).page;
+  const limitRaw = (q as Record<string, unknown>).limit;
+
+  const page = Math.max(1, parseInt(String(pageRaw || '1'), 10) || 1);
+  const limit = Math.min(200, Math.max(1, parseInt(String(limitRaw || defaultLimit), 10) || defaultLimit));
+  const offset = (page - 1) * limit;
+
+  return { page, limit, offset };
+}
+
+/** Wraps paginated list result with metadata */
+export function paginatedResponse<T>(items: T[], total: number, page: number, limit: number) {
+  return {
+    items,
+    total,
+    page,
+    limit,
+    totalPages: Math.max(1, Math.ceil(total / limit)),
+  };
+}
+
 /** Must be registered LAST: app.use(errorHandler(logger)). */
 export function errorHandler(logger: Logger) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

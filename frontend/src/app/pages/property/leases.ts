@@ -10,6 +10,7 @@ import { MANAGE_PROPERTY } from '../../nav';
 import { MoneyPipe, StatusBadge } from '../../shared/format';
 import { Icon } from '../../shared/icon';
 import { Modal } from '../../shared/overlays';
+import { Pagination } from '../../shared/pagination';
 
 interface LeaseForm {
   propertyId: string; unitId: string; tenantId: string; startDate: string; endDate: string;
@@ -20,7 +21,7 @@ type StatusFilter = (typeof STATUS_FILTERS)[number];
 
 @Component({
   selector: 'app-leases',
-  imports: [FormsModule, RouterLink, DatePipe, MoneyPipe, StatusBadge, Icon, Modal],
+  imports: [FormsModule, RouterLink, DatePipe, MoneyPipe, StatusBadge, Icon, Modal, Pagination],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './leases.html',
   styleUrl: './leases.scss',
@@ -36,14 +37,30 @@ export class LeasesPage {
   readonly unitId = input<string>();
 
   protected readonly items = signal<Lease[]>([]);
+  protected readonly page = signal(1);
+  protected readonly pageSize = signal(10);
+  protected readonly total = signal(0);
   protected readonly loading = signal(true);
   protected readonly saving = signal(false);
   protected readonly showCreate = signal(false);
+  protected readonly query = signal('');
   protected readonly filters = STATUS_FILTERS;
   protected readonly filter = signal<StatusFilter>('all');
   protected readonly canManage = computed(() => this.auth.hasRole(...MANAGE_PROPERTY));
-  protected readonly filtered = computed(() => (this.filter() === 'all' ? this.items() : this.items().filter((l) => l.status === this.filter())));
+  protected readonly filtered = computed(() => this.items());
   protected readonly activeCount = computed(() => this.items().filter((l) => l.status === 'active').length);
+
+  get q(): string {
+    return this.query();
+  }
+  set q(v: string) {
+    this.query.set(v);
+  }
+
+  protected onSearchChange() {
+    this.page.set(1);
+    void this.load();
+  }
 
   protected readonly properties = signal<Property[]>([]);
   protected readonly tenants = signal<Tenant[]>([]);
@@ -240,9 +257,34 @@ export class LeasesPage {
     return { propertyId: '', unitId: '', tenantId: '', startDate: todayIso(), endDate: '', monthlyRent: null, deposit: 0, currency: 'VND', dueDay: 5 };
   }
 
+  protected setFilter(s: StatusFilter) {
+    this.filter.set(s);
+    this.page.set(1);
+    void this.load();
+  }
+
+  protected onPageChange(p: number) {
+    this.page.set(p);
+    void this.load();
+  }
+
+  protected onPageSizeChange(s: number) {
+    this.pageSize.set(s);
+    this.page.set(1);
+    void this.load();
+  }
+
   private async load() {
+    this.loading.set(true);
     try {
-      this.items.set((await this.api.get<ListResponse<Lease>>('/property/leases')).items);
+      const res = await this.api.get<ListResponse<Lease>>('/property/leases', {
+        page: this.page(),
+        limit: this.pageSize(),
+        status: this.filter() === 'all' ? undefined : this.filter(),
+        q: this.query().trim() || undefined,
+      });
+      this.items.set(res.items || []);
+      this.total.set(res.total ?? (res.items?.length || 0));
     } catch (err) {
       this.toast.error(errorMessage(err));
     } finally {

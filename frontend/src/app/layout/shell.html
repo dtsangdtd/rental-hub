@@ -1,6 +1,6 @@
 <div class="layout" [class.open]="menuOpen()">
   <aside class="sidebar">
-    <a routerLink="/dashboard" class="brand">
+    <a [routerLink]="auth.isLoggedIn() ? '/dashboard' : '/shop'" class="brand">
       <span class="logo"><app-icon name="home" [size]="18" [stroke]="2.4" /></span>
       <span class="brand-text">Rental<b>Hub</b></span>
     </a>
@@ -23,16 +23,25 @@
     </nav>
 
     <div class="sidebar-footer">
-      <div class="me">
-        <div class="avatar">{{ initials() }}</div>
-        <div class="who">
-          <div class="name">{{ auth.user()?.fullName }}</div>
-          <div class="email">{{ auth.user()?.email }}</div>
+      @if (auth.isLoggedIn()) {
+        <div class="me">
+          <div class="avatar">{{ initials() }}</div>
+          <div class="who">
+            <div class="name">{{ auth.user()?.fullName }}</div>
+            <div class="email">{{ auth.user()?.email }}</div>
+          </div>
+          <button class="btn btn-ghost btn-icon" id="logout-btn" title="Sign out" (click)="auth.logout()">
+            <app-icon name="logout" [size]="17" />
+          </button>
         </div>
-        <button class="btn btn-ghost btn-icon" id="logout-btn" title="Sign out" (click)="auth.logout()">
-          <app-icon name="logout" [size]="17" />
-        </button>
-      </div>
+      } @else {
+        <div class="guest-signin-box mb">
+          <div class="small faint mb-1" style="font-size: 11px;">Chủ trọ / Khách thuê:</div>
+          <a routerLink="/login" class="btn btn-primary btn-sm btn-block">
+            Đăng nhập hệ thống
+          </a>
+        </div>
+      }
 
       <div class="version-tag">
         <span
@@ -67,11 +76,110 @@
       }
 
       <div class="spacer"></div>
-      @if (auth.role(); as role) { <app-status [value]="role" /> }
-      <a routerLink="/cart" class="btn btn-icon cart-btn" id="topbar-cart" aria-label="Cart">
-        <app-icon name="cart" [size]="17" />
-        @if (cart.count() > 0) { <span class="cart-count">{{ cart.count() }}</span> }
-      </a>
+
+      <!-- Language Switcher Toggle (VI / EN) -->
+      <button
+        type="button"
+        class="lang-toggle-btn"
+        id="lang-toggle-btn"
+        (click)="i18n.toggleLang()"
+        [title]="i18n.currentLang() === 'vi' ? 'Switch to English' : 'Chuyển sang Tiếng Việt'"
+      >
+        <span class="flag-icon">{{ i18n.currentLang() === 'vi' ? '🇻🇳' : '🇬🇧' }}</span>
+        <span class="lang-text">{{ i18n.currentLang().toUpperCase() }}</span>
+      </button>
+
+      @if (auth.isLoggedIn()) {
+        @if (auth.role(); as role) { <app-status [value]="role" /> }
+      } @else {
+        <a routerLink="/guest-orders" class="btn btn-ghost btn-sm">
+          <app-icon name="search" [size]="14" /> Tra cứu đơn
+        </a>
+        <a routerLink="/login" class="btn btn-secondary btn-sm">Đăng nhập</a>
+      }
+
+      <!-- Order Alerts Bell Dropdown (Managers & Landlords) -->
+      @if (canReceiveOrderAlerts()) {
+        <div class="notifications-wrapper">
+          <button
+            type="button"
+            class="btn btn-ghost btn-icon bell-btn"
+            id="topbar-bell-btn"
+            (click)="toggleNotifications()"
+            [title]="'Thông báo đơn hàng (' + notifService.unreadCount() + ' chưa đọc)'"
+          >
+            <app-icon name="bell" [size]="18" />
+            @if (notifService.unreadCount() > 0) {
+              <span class="bell-badge">{{ notifService.unreadCount() > 9 ? '9+' : notifService.unreadCount() }}</span>
+            }
+          </button>
+
+          @if (notificationsOpen()) {
+            <div class="notifications-backdrop" (click)="notificationsOpen.set(false)"></div>
+            <div class="notifications-dropdown">
+              <div class="notif-header">
+                <div class="notif-title">
+                  <app-icon name="bell" [size]="15" />
+                  <span>Thông báo đơn hàng</span>
+                  @if (notifService.unreadCount() > 0) {
+                    <span class="notif-unread-chip">{{ notifService.unreadCount() }} mới</span>
+                  }
+                </div>
+                @if (notifService.notifications().length > 0) {
+                  <button type="button" class="notif-mark-all" (click)="notifService.markAllAsRead()">
+                    Đã đọc tất cả
+                  </button>
+                }
+              </div>
+
+              <div class="notif-body">
+                @if (notifService.notifications().length === 0) {
+                  <div class="notif-empty">
+                    <app-icon name="package" [size]="28" />
+                    <span>Chưa có thông báo đơn hàng nào</span>
+                  </div>
+                } @else {
+                  <div class="notif-list">
+                    @for (item of notifService.notifications(); track item.id) {
+                      <div
+                        class="notif-item"
+                        [class.unread]="!item.read"
+                        (click)="onNotificationClick(item)"
+                      >
+                        <div class="notif-icon-box" [class.is-pos]="item.isPosCounter">
+                          <app-icon [name]="item.isPosCounter ? 'barcode' : 'bag'" [size]="15" />
+                        </div>
+                        <div class="notif-info">
+                          <div class="notif-top">
+                            <span class="notif-heading">{{ item.title }}</span>
+                            <span class="notif-time">{{ item.createdAt | date: 'HH:mm' }}</span>
+                          </div>
+                          <div class="notif-summary">{{ item.summary }}</div>
+                          <div class="notif-total">{{ item.totalAmount | money: 'VND' }}</div>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+
+              <div class="notif-footer">
+                <a routerLink="/orders" (click)="notificationsOpen.set(false)" class="view-all-link">
+                  Xem tất cả đơn hàng &amp; doanh thu →
+                </a>
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Shopping Cart Button (Hidden for Landlords/Admin, visible only for Tenants & Guests) -->
+      @if (!auth.isLoggedIn() || auth.hasRole('tenant')) {
+        <a routerLink="/cart" class="btn btn-icon cart-btn" id="topbar-cart" aria-label="Cart">
+          <app-icon name="cart" [size]="17" />
+          @if (cart.count() > 0) { <span class="cart-count">{{ cart.count() }}</span> }
+        </a>
+      }
     </header>
     <main>
       <router-outlet />

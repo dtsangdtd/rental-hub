@@ -1,47 +1,60 @@
 <div class="page">
   <header class="page-header">
     <div>
-      <div class="eyebrow">Accounting · Kế toán thu chi</div>
-      <h1>{{ isFinance() ? 'Invoices · Danh sách hóa đơn' : 'My invoices · Hóa đơn của tôi' }}</h1>
-      <p class="subtitle">Tiền phòng, tiền cọc, đơn hàng và các khoản phụ phí.</p>
+      <div class="eyebrow">{{ 'nav.accounting' | t }}</div>
+      <h1>{{ isFinance() ? ('invoice.title' | t) : ('invoice.myInvoicesTitle' | t) }}</h1>
+      <p class="subtitle">{{ 'invoice.subtitle' | t }}</p>
     </div>
     @if (isFinance()) {
       <div class="row">
-        <button class="btn" id="invoice-generate" (click)="openGenerate()"><app-icon name="refresh" [size]="16" /> Tạo tiền phòng tháng</button>
-        <button class="btn btn-primary" id="invoice-new" (click)="openCreate()"><app-icon name="plus" /> Tạo hóa đơn mới</button>
+        <button class="btn" id="invoice-generate" (click)="openGenerate()"><app-icon name="refresh" [size]="16" /> {{ 'invoice.generateRentBtn' | t }}</button>
+        <button class="btn btn-primary" id="invoice-new" (click)="openCreate()"><app-icon name="plus" /> {{ 'invoice.createInvoiceBtn' | t }}</button>
       </div>
     }
   </header>
 
   <div class="grid grid-3 mb stagger">
-    <div class="card stat"><div class="orb"></div><div class="label">Billed</div><div class="value">{{ sums().billed | money: currency() }}</div><div class="hint">{{ visible().length }} invoices shown</div></div>
-    <div class="card stat accent"><div class="orb"></div><div class="label">Collected</div><div class="value text-success">{{ sums().paid | money: currency() }}</div><div class="hint">{{ collectRate() }}% collection rate</div></div>
-    <div class="card stat warm"><div class="orb"></div><div class="label">Outstanding</div><div class="value text-warning">{{ sums().open | money: currency() }}</div><div class="hint">{{ overdueCount() }} overdue</div></div>
+    <div class="card stat"><div class="orb"></div><div class="label">{{ 'invoice.statBilled' | t }}</div><div class="value">{{ sums().billed | money: currency() }}</div><div class="hint">{{ 'invoice.statInvoicesShown' | t: { count: total() } }}</div></div>
+    <div class="card stat accent"><div class="orb"></div><div class="label">{{ 'invoice.statCollected' | t }}</div><div class="value text-success">{{ sums().paid | money: currency() }}</div><div class="hint">{{ 'invoice.statCollectionRate' | t: { rate: collectRate() } }}</div></div>
+    <div class="card stat warm"><div class="orb"></div><div class="label">{{ 'invoice.statOutstanding' | t }}</div><div class="value text-warning">{{ sums().open | money: currency() }}</div><div class="hint">{{ 'invoice.statOverdue' | t: { count: overdueCount() } }}</div></div>
   </div>
 
   <div class="card flush">
     <div class="row toolbar">
-      <div class="chips">@for (s of statuses; track s) { <button class="chip" [class.active]="status() === s" [id]="'invoice-filter-' + s" (click)="setStatus(s)">{{ s }}</button> }</div>
+      <div class="search">
+        <app-icon name="search" [size]="16" />
+        <input class="input" id="invoice-search" [placeholder]="'invoice.searchPlaceholder' | t" [(ngModel)]="q" (ngModelChange)="onSearchChange()" />
+      </div>
+      <div class="chips">
+        @for (k of kinds; track k) {
+          <button class="chip" [class.active]="kind() === k" [id]="'invoice-kind-' + k" (click)="setKind(k)">{{ getKindFilterLabel(k) | t }}</button>
+        }
+      </div>
+      <div class="chips status-chips">
+        @for (s of statuses; track s) {
+          <button class="chip" [class.active]="status() === s" [id]="'invoice-filter-' + s" (click)="setStatus(s)">{{ getStatusFilterLabel(s) | t }}</button>
+        }
+      </div>
       <span class="spacer"></span>
-      <label class="faint small" for="invoice-period">Period</label>
+      <label class="faint small" for="invoice-period">{{ 'invoice.periodLabel' | t }}</label>
       <input class="input period-input" id="invoice-period" type="month" [ngModel]="period()" (ngModelChange)="setPeriod($event)" />
-      @if (period()) { <button class="btn btn-ghost btn-sm" (click)="setPeriod('')">Clear</button> }
+      @if (period()) { <button class="btn btn-ghost btn-sm" (click)="setPeriod('')">{{ 'invoice.clearFilter' | t }}</button> }
     </div>
 
     @if (loading()) {
       <div class="skeleton-wrap stack">@for (i of [1, 2, 3, 4]; track i) { <div class="skeleton" style="height:40px"></div> }</div>
     } @else if (visible().length === 0) {
-      <div class="empty"><div class="empty-icon"><app-icon name="receipt" [size]="26" /></div><h3>No invoices</h3><p>Nothing matches the current filters.</p></div>
+      <div class="empty"><div class="empty-icon"><app-icon name="receipt" [size]="26" /></div><h3>{{ 'invoice.emptyTitle' | t }}</h3><p>{{ 'invoice.emptyHint' | t }}</p></div>
     } @else {
       <div class="table-wrap"><table class="table">
-        <thead><tr><th>Number</th><th>Description</th><th>Kind</th><th>Due</th><th class="right">Amount</th><th class="right">Paid</th><th>Status</th></tr></thead>
+        <thead><tr><th>{{ 'invoice.colNumber' | t }}</th><th>{{ 'invoice.colDescription' | t }}</th><th>{{ 'invoice.colKind' | t }}</th><th>{{ 'invoice.colDue' | t }}</th><th class="right">{{ 'invoice.colAmount' | t }}</th><th class="right">{{ 'invoice.colPaid' | t }}</th><th>{{ 'invoice.colStatus' | t }}</th></tr></thead>
         <tbody>
           @for (inv of visible(); track inv.id) {
             <tr class="clickable" [routerLink]="['/invoices', inv.id]" [id]="'invoice-' + inv.id">
               <td class="mono primary-cell">{{ inv.number }}</td>
-              <td><div>{{ inv.description }}</div>@if (inv.period) { <div class="faint small">Period {{ inv.period }}</div> }</td>
+              <td><div>{{ inv.description }}</div>@if (inv.period) { <div class="faint small">{{ 'invoice.periodPrefix' | t }} {{ inv.period }}</div> }</td>
               <td><span class="badge neutral">{{ inv.kind | label }}</span></td>
-              <td class="nowrap" [class.text-danger]="isOverdue(inv)">{{ inv.due_date | date: 'mediumDate' }}</td>
+              <td class="nowrap" [class.text-danger]="isOverdue(inv)">{{ inv.due_date | date: 'dd/MM/yyyy' }}</td>
               <td class="right nowrap">{{ inv.amount | money: inv.currency }}</td>
               <td class="right nowrap muted">{{ inv.amount_paid | money: inv.currency }}</td>
               <td><app-status [value]="inv.status" /></td>
@@ -49,36 +62,45 @@
           }
         </tbody>
       </table></div>
+
+      <app-pagination
+        [total]="total()"
+        [page]="page()"
+        [pageSize]="pageSize()"
+        [pageSizeOptions]="[10, 20, 50]"
+        (pageChange)="onPageChange($event)"
+        (pageSizeChange)="onPageSizeChange($event)"
+      />
     }
   </div>
 </div>
 
 @if (showGenerate()) {
-  <app-modal title="Generate monthly rent" subtitle="Creates one rent invoice per active lease. Safe to run again — duplicates are skipped." [width]="460" (closed)="showGenerate.set(false)">
+  <app-modal [title]="'invoice.genModalTitle' | t" [subtitle]="'invoice.genModalSubtitle' | t" [width]="460" (closed)="showGenerate.set(false)">
     <form class="stack" (ngSubmit)="generate()">
-      <div class="field"><label for="gen-period">Period</label><input class="input" id="gen-period" name="period" type="month" required [(ngModel)]="genPeriod" /></div>
+      <div class="field"><label for="gen-period">{{ 'invoice.genPeriodLabel' | t }}</label><input class="input" id="gen-period" name="period" type="month" required [(ngModel)]="genPeriod" /></div>
       @if (genResult(); as r) {
-        <div class="alert info">Period <b>{{ r.period }}</b>: {{ r.activeLeases }} active leases, <b>{{ r.created }}</b> new invoices created.</div>
+        <div class="alert info">{{ 'invoice.genSuccessAlert' | t: { period: r.period, leases: r.activeLeases, created: r.created } }}</div>
       }
       <div class="row modal-actions">
-        <button type="button" class="btn btn-ghost" (click)="showGenerate.set(false)">Close</button>
-        <button class="btn btn-primary" id="gen-submit" [disabled]="saving() || !genPeriod">@if (saving()) { <span class="spinner"></span> } Generate</button>
+        <button type="button" class="btn btn-ghost" (click)="showGenerate.set(false)">{{ 'common.close' | t }}</button>
+        <button class="btn btn-primary" id="gen-submit" [disabled]="saving() || !genPeriod">@if (saving()) { <span class="spinner"></span> } {{ 'invoice.genBtn' | t }}</button>
       </div>
     </form>
   </app-modal>
 }
 
 @if (showCreate()) {
-  <app-modal title="New invoice" subtitle="A manual charge, e.g. utilities or repairs." (closed)="showCreate.set(false)">
+  <app-modal [title]="'invoice.createModalTitle' | t" [subtitle]="'invoice.createModalSubtitle' | t" (closed)="showCreate.set(false)">
     <form class="form-grid" (ngSubmit)="create()" #f="ngForm">
-      <div class="field full"><label for="if-desc">Description</label><input class="input" id="if-desc" name="description" required maxlength="500" [(ngModel)]="form.description" placeholder="Electricity — October" /></div>
-      <div class="field"><label for="if-amount">Amount</label><input class="input" id="if-amount" name="amount" type="number" min="0.01" step="0.01" required [(ngModel)]="form.amount" /></div>
-      <div class="field"><label for="if-currency">Currency</label><input class="input" id="if-currency" name="currency" required minlength="3" maxlength="3" style="text-transform:uppercase" [(ngModel)]="form.currency" /></div>
-      <div class="field"><label for="if-due">Due date</label><input class="input" id="if-due" name="dueDate" type="date" required [(ngModel)]="form.dueDate" /></div>
-      <div class="field"><label for="if-customer">Customer user ID</label><input class="input mono" id="if-customer" name="customerId" pattern="^[0-9a-fA-F-]{36}$" [(ngModel)]="form.customerId" placeholder="optional UUID" /><span class="hint">Lets that user see the invoice</span></div>
+      <div class="field full"><label for="if-desc">{{ 'invoice.formDescription' | t }}</label><input class="input" id="if-desc" name="description" required maxlength="500" [(ngModel)]="form.description" placeholder="VD: Tiền điện phát sinh tháng 10..." /></div>
+      <div class="field"><label for="if-amount">{{ 'invoice.formAmount' | t }}</label><input class="input" id="if-amount" name="amount" type="number" min="0.01" step="0.01" required [(ngModel)]="form.amount" /></div>
+      <div class="field"><label for="if-currency">{{ 'invoice.formCurrency' | t }}</label><input class="input" id="if-currency" name="currency" required minlength="3" maxlength="3" style="text-transform:uppercase" [(ngModel)]="form.currency" /></div>
+      <div class="field"><label for="if-due">{{ 'invoice.formDueDate' | t }}</label><input class="input" id="if-due" name="dueDate" type="date" required [(ngModel)]="form.dueDate" /></div>
+      <div class="field"><label for="if-customer">{{ 'invoice.formCustomerId' | t }}</label><input class="input mono" id="if-customer" name="customerId" pattern="^[0-9a-fA-F-]{36}$" [(ngModel)]="form.customerId" placeholder="Tùy chọn UUID" /><span class="hint">{{ 'invoice.formCustomerIdHint' | t }}</span></div>
       <div class="row full modal-actions">
-        <button type="button" class="btn btn-ghost" (click)="showCreate.set(false)">Cancel</button>
-        <button class="btn btn-primary" id="if-submit" [disabled]="saving() || f.invalid">@if (saving()) { <span class="spinner"></span> } Create</button>
+        <button type="button" class="btn btn-ghost" (click)="showCreate.set(false)">{{ 'common.cancel' | t }}</button>
+        <button class="btn btn-primary" id="if-submit" [disabled]="saving() || f.invalid">@if (saving()) { <span class="spinner"></span> } {{ 'invoice.createBtn' | t }}</button>
       </div>
     </form>
   </app-modal>

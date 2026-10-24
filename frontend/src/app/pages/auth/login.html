@@ -4,36 +4,47 @@
     <div class="hero-content">
       <div class="eyebrow">All-in-one platform</div>
       <h2>Run your rentals, books &amp; shop <span>from one place.</span></h2>
-      <p class="muted">Properties, leases and tenants. Automatic rent invoices, payments and reports. A built-in store for home essentials.</p>
-      <div class="pills"><span class="pill">🏠 Rentals</span><span class="pill">📊 Accounting</span><span class="pill">🛍️ Commerce</span></div>
+      <p class="muted">Properties, leases and tenants. Automatic rent invoices, payments and reports. A built-in store
+        for home essentials.</p>
+      <div class="pills"><span class="pill">🏠 Rentals</span><span class="pill">📊 Accounting</span><span
+          class="pill">🛍️ Commerce</span></div>
     </div>
   </section>
 
   <section class="panel">
     <div class="form-card">
-      <div class="brand"><span class="logo"><app-icon name="home" [stroke]="2.4" /></span><span>Rental<b>Hub</b></span></div>
+      <div class="brand"><span class="logo"><app-icon name="home" [stroke]="2.4" /></span><span>Rental<b>Hub</b></span>
+      </div>
       <h1>Welcome back</h1>
       <p class="muted">Sign in to continue to your workspace.</p>
 
       <form (ngSubmit)="submit()" #f="ngForm">
         <div class="field">
           <label for="login-email">Email</label>
-          <input class="input" id="login-email" name="email" type="email" required autocomplete="email" [(ngModel)]="email" placeholder="you@example.com" />
+          <input class="input" id="login-email" name="email" type="email" required autocomplete="email"
+            [(ngModel)]="email" placeholder="you@example.com" />
         </div>
         <div class="field">
           <label for="login-password">Password</label>
-          <input class="input" id="login-password" name="password" type="password" required autocomplete="current-password" [(ngModel)]="password" placeholder="••••••••" />
+          <input class="input" id="login-password" name="password" type="password" required
+            autocomplete="current-password" [(ngModel)]="password" placeholder="••••••••" />
         </div>
         @if (error()) { <div class="alert danger">{{ error() }}</div> }
-        <button class="btn btn-primary btn-block submit-btn" id="login-submit" type="submit" [disabled]="loading() || f.invalid">
+        <button class="btn btn-primary btn-block submit-btn" id="login-submit" type="submit"
+          [disabled]="loading() || f.invalid">
           @if (loading()) { <span class="spinner"></span> } Sign in
         </button>
       </form>
 
-      <div class="demo">
-        <app-icon name="sparkle" />
-        <div class="spacer"><b>Demo admin</b><br /><span class="muted mono">admin&#64;rental.local / admin12345</span></div>
-        <button class="btn btn-sm" id="login-fill-demo" type="button" (click)="fillDemo()">Use</button>
+      <div class="guest-store-banner">
+        <div class="guest-banner-icon">🛍️</div>
+        <div class="guest-banner-info">
+          <div class="banner-title">Khách Mua Lẻ / Vãng Lai?</div>
+          <div class="banner-sub">Mua sắm tạp hóa giao nhanh tận nơi không cần tài khoản.</div>
+        </div>
+        <a routerLink="/shop" class="btn btn-sm guest-banner-btn" id="guest-enter-shop">
+          Vào Shop →
+        </a>
       </div>
 
       <p class="footer-link">New here? <a routerLink="/register" id="go-register">Create an account</a></p>

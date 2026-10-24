@@ -6,8 +6,9 @@ import { AuthStore } from '../../core/auth.store';
 import { CartService } from '../../core/cart.service';
 import { Invoice, ListResponse, Order, Property, ReportSummary } from '../../core/models';
 import { FINANCE, MANAGE_PROPERTY, READ_PROPERTY } from '../../nav';
-import { MoneyPipe, StatusBadge } from '../../shared/format';
+import { MoneyPipe, StatusBadge, TranslatePipe } from '../../shared/format';
 import { Icon } from '../../shared/icon';
+import { I18nService } from '../../core/i18n.service';
 
 interface QuickAction { label: string; path: string; icon: string; }
 
@@ -22,6 +23,7 @@ export class DashboardPage {
   private readonly api = inject(Api);
   protected readonly auth = inject(AuthStore);
   protected readonly cart = inject(CartService);
+  protected readonly i18n = inject(I18nService);
 
   protected readonly loading = signal(true);
   protected readonly report = signal<ReportSummary | null>(null);
@@ -32,10 +34,14 @@ export class DashboardPage {
   protected readonly isFinance = computed(() => this.auth.hasRole(...FINANCE));
   protected readonly canReadProperty = computed(() => this.auth.hasRole(...READ_PROPERTY));
   protected readonly today = new Date();
-  protected readonly greeting = (() => {
+  protected readonly greeting = computed(() => {
+    const isVi = this.i18n.isVi();
     const h = new Date().getHours();
+    if (isVi) {
+      return h < 12 ? 'Chào buổi sáng' : h < 18 ? 'Chào buổi chiều' : 'Chào buổi tối';
+    }
     return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
-  })();
+  });
 
   /** Prefer VND (the platform default) when several currencies exist. */
   protected readonly currency = computed(() => {
@@ -55,11 +61,26 @@ export class DashboardPage {
   protected readonly barMax = computed(() => Math.max(this.totals().income, this.totals().expenses, 1));
 
   protected readonly actions = computed<QuickAction[]>(() => {
+    const isVi = this.i18n.isVi();
     const a: QuickAction[] = [];
-    if (this.auth.hasRole(...MANAGE_PROPERTY)) a.push({ label: 'Add property', path: '/properties', icon: 'building' }, { label: 'New lease', path: '/leases', icon: 'key' });
-    if (this.isFinance()) a.push({ label: 'Invoices', path: '/invoices', icon: 'receipt' }, { label: 'Reports', path: '/reports', icon: 'chart' });
-    if (!this.isFinance()) a.push({ label: 'My invoices', path: '/invoices', icon: 'receipt' });
-    a.push({ label: 'Shop', path: '/shop', icon: 'bag' });
+    if (this.auth.hasRole(...MANAGE_PROPERTY)) {
+      a.push(
+        { label: isVi ? 'Thêm nhà' : 'Add property', path: '/properties', icon: 'building' },
+        { label: isVi ? 'Hợp đồng mới' : 'New lease', path: '/leases', icon: 'key' },
+      );
+    }
+    if (this.isFinance()) {
+      a.push(
+        { label: isVi ? 'Hóa đơn' : 'Invoices', path: '/invoices', icon: 'receipt' },
+        { label: isVi ? 'Báo cáo' : 'Reports', path: '/reports', icon: 'chart' },
+      );
+    }
+    if (!this.isFinance()) {
+      a.push({ label: isVi ? 'Hóa đơn của tôi' : 'My invoices', path: '/invoices', icon: 'receipt' });
+    }
+    if (this.auth.hasRole('admin', 'tenant')) {
+      a.push({ label: isVi ? 'Cửa hàng' : 'Shop', path: '/shop', icon: 'bag' });
+    }
     return a.slice(0, 4);
   });
 

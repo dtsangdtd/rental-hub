@@ -3,11 +3,23 @@
     <div>
       <div class="eyebrow">Administration</div>
       <h1>System Users</h1>
-      <p class="subtitle">Manage staff and user accounts across all roles</p>
+      <p class="subtitle">{{ total() }} user accounts across all roles</p>
     </div>
-    <button class="btn btn-primary" id="user-new" (click)="openCreate()">
-      <app-icon name="plus" /> New user
-    </button>
+    <div class="row">
+      <div class="search">
+        <app-icon name="search" [size]="16" />
+        <input
+          class="input"
+          id="user-search"
+          placeholder="Search users (name, email)..."
+          [(ngModel)]="q"
+          (ngModelChange)="onSearchChange()"
+        />
+      </div>
+      <button class="btn btn-primary" id="user-new" (click)="openCreate()">
+        <app-icon name="plus" /> New user
+      </button>
+    </div>
   </header>
 
   <div class="card flush">
@@ -48,6 +60,14 @@
           </tbody>
         </table>
       </div>
+
+      <app-pagination
+        [total]="total()"
+        [page]="page()"
+        [pageSize]="pageSize()"
+        (pageChange)="onPageChange($event)"
+        (pageSizeChange)="onPageSizeChange($event)"
+      />
     }
   </div>
 </div>

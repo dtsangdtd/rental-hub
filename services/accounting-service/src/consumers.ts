@@ -8,8 +8,10 @@ import {
   LeaseTerminatedData,
   Logger,
   OrderCancelledData,
+  OrderPaidData,
   OrderPlacedData,
   PropertyAutoInvoiceToggledData,
+  TenantDebtChargeRequestedData,
 } from '@rental/common';
 import { calculateProratedRent, createInvoice, dueDateFor, periodOf } from './invoices';
 
@@ -25,7 +27,9 @@ export async function registerConsumers(pool: Pool, bus: EventBus, logger: Logge
       Events.LeaseTerminated,
       Events.PropertyAutoInvoiceToggled,
       Events.OrderPlaced,
+      Events.OrderPaid,
       Events.OrderCancelled,
+      Events.TenantDebtChargeRequested,
     ],
     async (event: DomainEvent) => {
       const handled = await handleOnce(pool, event.id, async (db) => {
@@ -114,17 +118,82 @@ export async function registerConsumers(pool: Pool, bus: EventBus, logger: Logge
           case Events.OrderPlaced: {
             const d = event.data as OrderPlacedData;
             const today = new Date().toISOString().slice(0, 10);
-            await createInvoice(db, {
-              ownerId: null,
-              customerId: d.customerId,
+
+            // Resolve ownerId from event or from property's lease_billing
+            let ownerId = d.ownerId ?? null;
+            if (!ownerId && d.propertyId) {
+              const { rows: lb } = await db.query(
+                'SELECT owner_id FROM lease_billing WHERE property_id = $1 LIMIT 1',
+                [d.propertyId],
+              );
+              if (lb[0]?.owner_id) {
+                ownerId = lb[0].owner_id;
+              }
+            }
+
+            const orderRef = d.orderNumber ? `#${d.orderNumber}` : `#${d.orderId.slice(0, 8)}`;
+            const customerPart = d.customerName ? ` (${d.customerName}${d.roomNumber ? ' - P.' + d.roomNumber : ''})` : '';
+            const itemsCount = d.items?.length ? `${d.items.length} mặt hàng` : 'Đơn hàng';
+            const description = `Hóa đơn bán lẻ cửa hàng ${orderRef}${customerPart} - ${itemsCount}`;
+
+            const inv = await createInvoice(db, {
+              ownerId,
+              customerId: d.customerId && d.customerId !== '00000000-0000-0000-0000-000000000000' ? d.customerId : null,
               referenceType: 'order',
               referenceId: d.orderId,
               kind: 'order',
-              description: `Order ${d.orderId.slice(0, 8)} (${d.items.length} items)`,
+              description,
               amount: d.total,
               currency: d.currency,
               dueDate: today,
+              metadata: {
+                orderId: d.orderId,
+                orderNumber: d.orderNumber,
+                paymentMethod: d.paymentMethod,
+                propertyId: d.propertyId,
+                hubId: d.hubId,
+                customerName: d.customerName,
+                roomNumber: d.roomNumber,
+                items: d.items,
+              },
             });
+
+            // If this order is already paid (e.g. POS Cash, POS VietQR, online paid):
+            if (inv && d.isPaid) {
+              const method = d.paidMethod || (d.paymentMethod === 'VIETQR' ? 'bank_transfer' : 'cash');
+              const recordedBy = d.recordedBy || ownerId || inv.id;
+              await db.query(
+                `INSERT INTO payments (invoice_id, amount, method, note, recorded_by, paid_at)
+                 VALUES ($1, $2, $3, $4, $5, now())`,
+                [inv.id, d.total, method, `Thanh toán tại quầy đơn ${orderRef} qua ${d.paymentMethod || method}`, recordedBy],
+              );
+              await db.query(
+                `UPDATE invoices SET amount_paid = $1, status = 'paid' WHERE id = $2`,
+                [d.total, inv.id],
+              );
+            }
+            break;
+          }
+          case Events.OrderPaid: {
+            const d = event.data as OrderPaidData;
+            const { rows: invRows } = await db.query(
+              `SELECT * FROM invoices WHERE reference_type = 'order' AND reference_id = $1 FOR UPDATE`,
+              [d.orderId],
+            );
+            const inv = invRows[0];
+            if (inv && inv.status !== 'paid') {
+              const method = d.paidMethod || (d.paymentMethod === 'VIETQR' ? 'bank_transfer' : 'cash');
+              const recordedBy = d.recordedBy || inv.owner_id || inv.id;
+              await db.query(
+                `INSERT INTO payments (invoice_id, amount, method, note, recorded_by, paid_at)
+                 VALUES ($1, $2, $3, $4, $5, now())`,
+                [inv.id, d.amount, method, `Thanh toán đơn hàng ${d.orderNumber ? '#' + d.orderNumber : ''} (${d.paymentMethod || method})`, recordedBy],
+              );
+              await db.query(
+                `UPDATE invoices SET amount_paid = $1, status = 'paid' WHERE id = $2`,
+                [d.amount, inv.id],
+              );
+            }
             break;
           }
           case Events.OrderCancelled: {
@@ -134,6 +203,37 @@ export async function registerConsumers(pool: Pool, bus: EventBus, logger: Logge
                 WHERE reference_type = 'order' AND reference_id = $1 AND status = 'unpaid'`,
               [d.orderId],
             );
+            break;
+          }
+          case Events.TenantDebtChargeRequested: {
+            const d = event.data as TenantDebtChargeRequestedData;
+            const { rows: lb } = await db.query(
+              'SELECT * FROM lease_billing WHERE lease_id = $1',
+              [d.contractId],
+            );
+            const ownerId = lb[0]?.owner_id ?? d.propertyId;
+            const customerId = lb[0]?.tenant_user_id ?? null;
+            const dueDay = lb[0]?.due_day ?? 5;
+            await createInvoice(db, {
+              ownerId,
+              customerId,
+              referenceType: 'order',
+              referenceId: d.orderId,
+              kind: 'order',
+              period: d.period,
+              description: d.description,
+              amount: d.amount,
+              currency: d.currency,
+              dueDate: dueDateFor(d.period, dueDay),
+              metadata: {
+                orderId: d.orderId,
+                orderNumber: d.orderNumber,
+                tenantId: d.tenantId,
+                contractId: d.contractId,
+                propertyId: d.propertyId,
+                period: d.period,
+              },
+            });
             break;
           }
           default:

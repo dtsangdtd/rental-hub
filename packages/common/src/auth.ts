@@ -41,6 +41,21 @@ export function requireAuth(secret: string) {
   };
 }
 
+/** Parses token if present, setting req.user, but continues without error if absent. */
+export function optionalAuth(secret: string) {
+  return (req: Request, _res: Response, next: NextFunction) => {
+    const header = req.headers.authorization;
+    if (!header?.startsWith('Bearer ')) return next();
+    try {
+      const payload = jwt.verify(header.slice(7), secret) as jwt.JwtPayload;
+      req.user = { id: String(payload.sub), email: payload.email, role: payload.role };
+    } catch {
+      // ignore invalid token for optional auth
+    }
+    return next();
+  };
+}
+
 export function requireRole(...roles: Role[]) {
   return (req: Request, _res: Response, next: NextFunction) => {
     if (!req.user) return next(unauthorized());

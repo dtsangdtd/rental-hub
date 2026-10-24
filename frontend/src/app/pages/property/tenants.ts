@@ -9,6 +9,7 @@ import { VietnamAddressService, VietmapProvince, VietmapWard } from '../../core/
 import { MANAGE_PROPERTY } from '../../nav';
 import { Icon } from '../../shared/icon';
 import { Modal } from '../../shared/overlays';
+import { Pagination } from '../../shared/pagination';
 
 interface TenantFormData {
   fullName: string;
@@ -27,7 +28,7 @@ interface TenantFormData {
 
 @Component({
   selector: 'app-tenants',
-  imports: [FormsModule, DatePipe, Icon, Modal],
+  imports: [FormsModule, DatePipe, Icon, Modal, Pagination],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './tenants.html',
   styleUrl: './tenants.scss',
@@ -39,32 +40,16 @@ export class TenantsPage {
   readonly addressService = inject(VietnamAddressService);
 
   protected readonly items = signal<Tenant[]>([]);
+  protected readonly page = signal(1);
+  protected readonly pageSize = signal(10);
+  protected readonly total = signal(0);
   protected readonly loading = signal(true);
   protected readonly saving = signal(false);
   protected readonly showModal = signal(false);
   protected readonly editingTenant = signal<Tenant | null>(null);
   protected readonly query = signal('');
   protected readonly canManage = computed(() => this.auth.hasRole(...MANAGE_PROPERTY));
-
-  protected readonly filtered = computed(() => {
-    const q = this.query().toLowerCase().trim();
-    if (!q) return this.items();
-    return this.items().filter((t) => {
-      const searchStr = [
-        t.full_name,
-        t.phone,
-        t.email,
-        t.id_number,
-        t.street_address,
-        t.ward,
-        t.city,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-      return searchStr.includes(q);
-    });
-  });
+  protected readonly filtered = computed(() => this.items());
 
   protected form: TenantFormData = this.emptyForm();
 
@@ -327,10 +312,33 @@ export class TenantsPage {
     }
   }
 
+  protected onSearchChange(val: string) {
+    this.query.set(val);
+    this.page.set(1);
+    void this.load();
+  }
+
+  protected onPageChange(p: number) {
+    this.page.set(p);
+    void this.load();
+  }
+
+  protected onPageSizeChange(s: number) {
+    this.pageSize.set(s);
+    this.page.set(1);
+    void this.load();
+  }
+
   private async load(): Promise<void> {
+    this.loading.set(true);
     try {
-      const res = await this.api.get<ListResponse<Tenant>>('/property/tenants');
-      this.items.set(res.items);
+      const res = await this.api.get<ListResponse<Tenant>>('/property/tenants', {
+        page: this.page(),
+        limit: this.pageSize(),
+        q: this.query().trim() || undefined,
+      });
+      this.items.set(res.items || []);
+      this.total.set(res.total ?? (res.items?.length || 0));
     } catch (err) {
       this.toast.error(errorMessage(err));
     } finally {

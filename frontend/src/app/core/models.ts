@@ -5,7 +5,13 @@
 export type Role = 'admin' | 'landlord' | 'accountant' | 'tenant';
 export const ROLES: Role[] = ['admin', 'landlord', 'accountant', 'tenant'];
 
-export interface ListResponse<T> { items: T[]; }
+export interface ListResponse<T> {
+  items: T[];
+  total?: number;
+  page?: number;
+  limit?: number;
+  totalPages?: number;
+}
 
 export interface ApiErrorBody {
   error: { code: string; message: string; details?: unknown };
@@ -182,6 +188,79 @@ export interface ReportSummary {
 export interface GenerateRentResult { period: string; activeLeases: number; created: number; }
 
 // ---------- Commerce ----------
+export interface ProductUom {
+  id: string;
+  product_id: string;
+  uom_name: string;
+  conversion_factor: number;
+  retail_price: number;
+  wholesale_price?: number | null;
+  barcode?: string | null;
+  is_default: boolean;
+}
+
+export interface GroceryCategory {
+  id: string;
+  slug: string;
+  name: string;
+  icon_name: string;
+  sort_order: number;
+  is_active: boolean;
+  property_id?: string | null;
+  created_by?: string | null;
+  description?: string | null;
+}
+
+export interface BarcodeLookupResult {
+  product: Product;
+  matchedUom?: ProductUom | null;
+  activePrice: number;
+  activeUomName: string;
+  hubStock: number;
+}
+
+export interface POSReceipt {
+  storeName: string;
+  storeAddress: string;
+  orderNumber: string;
+  cashierName: string;
+  createdAt: string;
+  customerType: 'RETAIL' | 'TENANT';
+  roomNumber?: string | null;
+  customerName?: string | null;
+  paymentMethod: string;
+  total: number;
+  cashGiven?: number | null;
+  cashReturned?: number | null;
+  currency: string;
+}
+
+export interface RevenueStats {
+  todayRevenue: number;
+  todayOrders: number;
+  monthRevenue: number;
+  monthOrders: number;
+  yearRevenue: number;
+  yearOrders: number;
+  periodRevenue: number;
+  periodOrders: number;
+  pendingOrders: number;
+  paymentBreakdown: Record<string, { total: number; count: number }>;
+  dailyBreakdown: Array<{ date: string; revenue: number; orderCount: number }>;
+}
+
+export interface InventoryHub {
+  id: string;
+  property_id: string;
+  name: string;
+  address: string;
+  manager_user_id?: string | null;
+  is_active: boolean;
+  total_products?: number;
+  total_inventory_qty?: number;
+  created_at?: string;
+}
+
 export interface Product {
   id: string;
   seller_id: string;
@@ -189,23 +268,57 @@ export interface Product {
   name: string;
   description: string | null;
   category: string;
+  category_id?: string | null;
+  category_name?: string | null;
+  category_slug?: string | null;
+  category_icon?: string | null;
+  category_created_by?: string | null;
+  base_uom?: string;
   price: number;
   currency: string;
   stock: number;
   active: boolean;
+  is_combo?: boolean;
+  image_url?: string | null;
+  barcode?: string | null;
+  min_alert_threshold?: number;
+  uoms?: ProductUom[];
+  hub_stock?: number;
   created_at: string;
 }
+
 export type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'fulfilled';
+export type DeliveryType = 'ROOM_DELIVERY' | 'LOBBY_PICKUP' | 'STANDARD';
+export type CommercePaymentMethod = 'DEBT_ADDED_TO_RENT' | 'VIETQR' | 'COD';
+
 export interface Order {
   id: string;
   customer_id: string;
+  order_number?: string | null;
   status: OrderStatus;
   total: number;
   currency: string;
+  customer_type?: 'TENANT' | 'RETAIL';
+  property_id?: string | null;
+  hub_id?: string | null;
+  room_number?: string | null;
+  recipient_name?: string | null;
+  recipient_phone?: string | null;
+  recipient_address?: string | null;
+  delivery_type?: DeliveryType | string;
+  payment_method?: CommercePaymentMethod | string;
+  tenant_id?: string | null;
+  contract_id?: string | null;
   note: string | null;
+  is_pos_counter?: boolean | null;
+  cash_given?: number | null;
+  cash_returned?: number | null;
+  delivered_at?: string | null;
+  delivered_by?: string | null;
   created_at: string;
   updated_at: string;
 }
+
 export interface OrderItem {
   id: string;
   order_id: string;
@@ -213,5 +326,107 @@ export interface OrderItem {
   name: string;
   unit_price: number;
   quantity: number;
+  uom_id?: string | null;
+  uom_name?: string | null;
+  total_base_qty?: number;
 }
 export interface OrderDetail extends Order { items: OrderItem[]; }
+
+// ---------- Temporary Residence & Absence (Tạm trú, tạm vắng) ----------
+export type ResidenceStatus =
+  | 'not_registered'
+  | 'pending'
+  | 'registered'
+  | 'expiring_soon'
+  | 'expired'
+  | 'temporary_absence';
+
+export interface ResidenceItem {
+  id: string;
+  resident_type: 'occupant' | 'tenant';
+  full_name: string;
+  phone: string | null;
+  id_number: string | null;
+  birth_date: string | null;
+  gender: string | null;
+  relationship: string | null;
+  vehicle_plate: string | null;
+  is_primary: boolean;
+  notes: string | null;
+  temp_reg_status: string;
+  temp_reg_start_date: string | null;
+  temp_reg_end_date: string | null;
+  temp_reg_code: string | null;
+  temp_reg_notes: string | null;
+  temp_absence_reason: string | null;
+  temp_absence_destination: string | null;
+  updated_at: string;
+  unit_id: string;
+  unit_name: string;
+  property_id: string;
+  property_name: string;
+  property_address: string;
+  owner_id: string;
+  computed_status: ResidenceStatus;
+  days_until_expiry: number | null;
+}
+
+export interface ResidenceStats {
+  total: number;
+  notRegistered: number;
+  pending: number;
+  registered: number;
+  expiringSoon: number;
+  expired: number;
+  temporaryAbsence: number;
+}
+
+export interface ResidenceUpdatePayload {
+  tempRegStatus: string;
+  tempRegStartDate?: string | null;
+  tempRegEndDate?: string | null;
+  tempRegCode?: string | null;
+  tempRegNotes?: string | null;
+  tempAbsenceReason?: string | null;
+  tempAbsenceDestination?: string | null;
+}
+
+export interface Ct01ResidentInfo {
+  id: string;
+  type: 'occupant' | 'tenant';
+  fullName: string;
+  phone: string;
+  idNumber: string;
+  idIssueDate: string;
+  gender: string;
+  birthDate: string;
+  nationality: string;
+  relationship: string;
+  permanentAddress: string;
+  tempRegStatus: string;
+  tempRegStartDate: string;
+  tempRegEndDate: string;
+  tempRegCode: string;
+  tempRegNotes: string;
+  tempAbsenceReason: string;
+  tempAbsenceDestination: string;
+}
+
+export interface Ct01RoomOccupant {
+  id: string;
+  fullName: string;
+  birthDate: string;
+  gender: string;
+  idNumber: string;
+  relationship: string;
+  phone: string;
+}
+
+export interface Ct01Data {
+  declarationType: 'temporary_absence' | 'temporary_residence';
+  resident: Ct01ResidentInfo;
+  unit: { id: string; name: string };
+  property: { id: string; name: string; address: string };
+  landlord: { id: string; fullName: string };
+  roomOccupants: Ct01RoomOccupant[];
+}

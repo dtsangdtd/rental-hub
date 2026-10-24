@@ -1,0 +1,113 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <div class="eyebrow">Quick-Commerce</div>
+      <h1>Tra Cứu Lịch Sử Đơn Hàng</h1>
+      <p class="subtitle">Dành cho khách vãng lai và khách thuê tra cứu theo số điện thoại (không cần mật khẩu)</p>
+    </div>
+    <a routerLink="/shop" class="btn btn-primary">
+      <app-icon name="bag" /> Mua sắm tiếp
+    </a>
+  </header>
+
+  <!-- Search Card -->
+  <div class="card lookup-card mb">
+    <form (ngSubmit)="lookup()" class="lookup-form">
+      <div class="field flex-1">
+        <label for="lookup-phone">Số điện thoại đặt hàng</label>
+        <div class="input-wrap">
+          <app-icon name="phone" [size]="16" />
+          <input
+            class="input lookup-input"
+            id="lookup-phone"
+            name="phone"
+            placeholder="Nhập số điện thoại của bạn (VD: 0912345678)"
+            [ngModel]="phone()"
+            (ngModelChange)="phone.set($event)"
+            required
+          />
+        </div>
+      </div>
+      <button class="btn btn-primary lookup-btn" type="submit" [disabled]="loading()">
+        @if (loading()) { <span class="spinner"></span> }
+        <app-icon name="search" [size]="16" /> Tra cứu đơn
+      </button>
+    </form>
+  </div>
+
+  @if (loading()) {
+    <div class="skeleton-wrap stack">
+      @for (i of [1, 2, 3]; track i) { <div class="skeleton" style="height:50px"></div> }
+    </div>
+  } @else if (searched() && orders().length === 0) {
+    <div class="card empty">
+      <div class="empty-icon"><app-icon name="package" [size]="32" /></div>
+      <h3>Không tìm thấy đơn hàng nào</h3>
+      <p>Không có đơn hàng nào khớp với số điện thoại <b>{{ phone() }}</b>. Vui lòng kiểm tra lại số điện thoại.</p>
+      <a routerLink="/shop" class="btn btn-primary mt"><app-icon name="bag" /> Đến Cửa Hàng</a>
+    </div>
+  } @else if (orders().length > 0) {
+    <div class="card flush">
+      <div class="card-header">
+        <h3>Tìm thấy {{ orders().length }} đơn hàng của số điện thoại {{ phone() }}</h3>
+      </div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Mã đơn &amp; Thời gian</th>
+              <th>Địa chỉ / Số phòng</th>
+              <th>Thanh toán &amp; Nhận hàng</th>
+              <th class="right">Tổng tiền</th>
+              <th class="center">Trạng thái</th>
+              <th class="right">Chi tiết</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (o of orders(); track o.id) {
+              <tr class="clickable" [routerLink]="['/orders', o.id]">
+                <td>
+                  <div class="mono font-bold">{{ o.order_number || ('#' + o.id.slice(0, 8)) }}</div>
+                  <div class="muted small">{{ o.created_at | date: 'dd/MM/yyyy HH:mm' }}</div>
+                </td>
+                <td>
+                  <div class="font-medium text-accent">{{ o.room_number || 'Giao tận nơi' }}</div>
+                  <div class="small faint">{{ o.recipient_name || 'Khách nhận' }}</div>
+                </td>
+                <td>
+                  <div class="small">
+                    @if (o.payment_method === 'DEBT_ADDED_TO_RENT') {
+                      <span class="badge" style="background: hsla(38, 95%, 60%, 0.15); color: #f59e0b">
+                        📋 Gộp tiền phòng
+                      </span>
+                    } @else if (o.payment_method === 'VIETQR') {
+                      <span class="badge" style="background: hsla(210, 90%, 60%, 0.15); color: #3b82f6">
+                        📲 VietQR
+                      </span>
+                    } @else {
+                      <span class="badge">💵 Tiền mặt (COD)</span>
+                    }
+                  </div>
+                  <div class="small faint mt-1">
+                    {{ o.delivery_type === 'ROOM_DELIVERY' ? '🚪 Giao tận phòng' : (o.delivery_type === 'LOBBY_PICKUP' ? '🏢 Sảnh tòa nhà' : '📦 Tiêu chuẩn') }}
+                  </div>
+                </td>
+                <td class="right nowrap font-bold primary-cell">
+                  {{ o.total | money: o.currency }}
+                </td>
+                <td class="center">
+                  <app-status [value]="o.status" />
+                </td>
+                <td class="right">
+                  <a [routerLink]="['/orders', o.id]" class="btn btn-ghost btn-sm">
+                    Xem →
+                  </a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</div>

@@ -1,18 +1,85 @@
-<div class="page">
-  <header class="page-header">
-    <div>
-      <div class="eyebrow">Commerce</div>
-      <h1>Home Essentials &amp; Services</h1>
-      <p class="subtitle">Furniture, appliances, amenities and repair services for your home</p>
+<div class="page shop-page">
+  <!-- 7-Eleven Style Convenience Store Hero Banner -->
+  <div class="seven-hero mb">
+    <div class="seven-hero-content">
+      <div class="seven-badge-pill">
+        <app-icon name="zap" [size]="14" />
+        <span>CỬA HÀNG TIỆN LỢI TÒA NHÀ · GIAO 15-30P TẬN PHÒNG</span>
+      </div>
+      <h2>Bữa Ăn Nhanh &amp; Nhu Yếu Phẩm 24/7</h2>
+      <p class="seven-hero-desc">
+        Mì tôm nóng, nước giải khát lạnh, bánh kẹo, đồ dùng vệ sinh. Bán lẻ tại quầy bằng <b>máy quét mã vạch</b> &amp; đặt hàng online giao tận cửa phòng!
+      </p>
+
+      <div class="seven-hero-highlights">
+        <span class="highlight-item"><app-icon name="truck" [size]="14" /> Giao tận phòng &amp; tận nơi</span>
+        <span class="highlight-item"><app-icon name="barcode" [size]="14" /> Bán hàng quét mã vạch</span>
+        <span class="highlight-item"><app-icon name="check" [size]="14" /> Hạn sử dụng rõ ràng (FIFO)</span>
+      </div>
     </div>
-    <div class="row">
+
+    <!-- Right Quick Actions -->
+    <div class="seven-hero-actions">
+      @if (canManageCategories()) {
+        <a routerLink="/pos" class="seven-pos-card" id="go-pos-btn">
+          <div class="pos-icon-circle">
+            <app-icon name="barcode" [size]="24" />
+          </div>
+          <div class="pos-card-text">
+            <strong>📟 MÁY POS BÁN HÀNG</strong>
+            <span>Bán tại quầy bằng máy quét mã vạch</span>
+          </div>
+          <span class="pos-enter-arrow">→</span>
+        </a>
+      }
+
+      <button type="button" class="btn btn-secondary btn-sm barcode-quick-btn" (click)="openBarcodeModal()">
+        <app-icon name="scan" [size]="15" /> Quét mã vạch tra cứu
+      </button>
+    </div>
+  </div>
+
+  <!-- Store Header Controls -->
+  <header class="page-header shop-header">
+    <div class="header-left">
+      <div class="eyebrow">Commerce &amp; Convenience Mini-Hub</div>
+      <h1>Cửa Hàng Tiện Lợi</h1>
+      <p class="subtitle">Kho hàng thực tế tại sảnh &amp; các tầng tòa nhà</p>
+    </div>
+
+    <div class="row header-actions">
+      <!-- Hub / Property Selector -->
+      @if (hubs().length > 0) {
+        <div class="hub-select-wrap">
+          <label class="hub-label"><app-icon name="building" [size]="14" /> Kho Hub:</label>
+          <select
+            class="input hub-select"
+            [ngModel]="selectedHubId()"
+            (ngModelChange)="onHubChange($event)"
+          >
+            @for (h of hubs(); track h.id) {
+              <option [value]="h.id">{{ h.name }}</option>
+            }
+          </select>
+        </div>
+      }
+
+      <!-- Search Input -->
       <div class="search">
         <app-icon name="search" [size]="16" />
-        <input class="input" id="shop-search" placeholder="Search products..." [(ngModel)]="q" />
+        <input
+          class="input"
+          id="shop-search"
+          placeholder="Tìm mì, nước ngọt, bánh kẹo, SKU..."
+          [(ngModel)]="q"
+          (ngModelChange)="onSearchChange()"
+        />
       </div>
+
+      <!-- Link to Cart -->
       <a routerLink="/cart" class="btn btn-primary" id="shop-cart-btn">
         <app-icon name="cart" />
-        <span>Cart</span>
+        <span>Giỏ hàng</span>
         @if (cart.count() > 0) {
           <span class="badge cart-badge">{{ cart.count() }}</span>
         }
@@ -20,15 +87,61 @@
     </div>
   </header>
 
-  <!-- Category filters -->
-  <div class="chips mb">
-    @for (c of categories(); track c) {
-      <button class="chip" [class.active]="selectedCategory() === c" (click)="selectedCategory.set(c)">
-        {{ c === 'all' ? 'All Products' : c }}
+  <!-- 7-Eleven Category Slider with Management for Landlord -->
+  <div class="categories-bar-wrap mb">
+    <div class="categories-scroll">
+      <button
+        class="cat-pill-btn"
+        [class.active]="selectedCategory() === 'all' && !isComboFilter()"
+        (click)="selectCategory('all')"
+      >
+        <span class="cat-icon"><app-icon name="bag" [size]="16" /></span>
+        <span class="cat-name">Tất cả sản phẩm</span>
       </button>
-    }
+
+      <button
+        class="cat-pill-btn combo-pill"
+        [class.active]="isComboFilter()"
+        (click)="toggleComboFilter()"
+      >
+        <span class="cat-icon"><app-icon name="sparkle" [size]="16" /></span>
+        <span class="cat-name">Combo Sinh Viên Tiết Kiệm</span>
+      </button>
+
+      @for (c of categories(); track c.id) {
+        <div class="cat-pill-item">
+          <button
+            class="cat-pill-btn"
+            [class.active]="selectedCategory() === c.slug && !isComboFilter()"
+            (click)="selectCategory(c.slug)"
+          >
+            <span class="cat-icon"><app-icon [name]="c.icon_name || 'package'" [size]="16" /></span>
+            <span class="cat-name">{{ c.name }}</span>
+          </button>
+
+          @if (canManageCategories()) {
+            <div class="cat-actions-overlay">
+              <button class="cat-action-icon edit" (click)="openEditCategory(c, $event)" title="Chỉnh sửa danh mục">
+                <app-icon name="edit" [size]="12" />
+              </button>
+              <button class="cat-action-icon del" (click)="deleteCategory(c, $event)" title="Xóa danh mục">
+                <app-icon name="trash" [size]="12" />
+              </button>
+            </div>
+          }
+        </div>
+      }
+
+      @if (canManageCategories()) {
+        <button class="cat-pill-btn add-cat-btn" id="add-category-btn" (click)="openCreateCategory()">
+          <app-icon name="plus" [size]="15" />
+          <span>+ Thêm Danh Mục</span>
+        </button>
+      }
+    </div>
   </div>
 
+  <!-- Products Grid -->
   @if (loading()) {
     <div class="grid grid-auto">
       @for (i of [1, 2, 3, 4, 5, 6]; track i) {
@@ -37,61 +150,239 @@
     </div>
   } @else if (filtered().length === 0) {
     <div class="card empty">
-      <div class="empty-icon"><app-icon name="bag" [size]="28" /></div>
-      <h3>No products available</h3>
-      <p>Check back later or try adjusting your search terms.</p>
+      <div class="empty-icon"><app-icon name="bag" [size]="32" /></div>
+      <h3>Không tìm thấy sản phẩm nào</h3>
+      <p>Thử tìm với từ khóa khác hoặc chuyển sang danh mục khác.</p>
     </div>
   } @else {
     <div class="grid grid-auto stagger">
       @for (p of filtered(); track p.id) {
         <div class="card flush product-card" [id]="'prod-' + p.id">
           <div class="img-wrap">
-            <img [src]="imgFor(p.category)" [alt]="p.name" />
-            <span class="category-tag">{{ p.category }}</span>
-            @if (p.stock <= 0) {
-              <span class="stock-tag out">Out of stock</span>
-            } @else if (p.stock <= 3) {
-              <span class="stock-tag low">Only {{ p.stock }} left</span>
+            <img [src]="imgFor(p.category, p)" [alt]="p.name" />
+            <span class="category-tag">{{ p.category_name || p.category }}</span>
+
+            @if (p.is_combo) {
+              <span class="combo-badge">Combo Tiết Kiệm</span>
+            }
+
+            @if ((p.hub_stock ?? p.stock) <= 0) {
+              <span class="stock-tag out">Hết hàng</span>
+            } @else if ((p.hub_stock ?? p.stock) <= 5) {
+              <span class="stock-tag low">Còn {{ p.hub_stock ?? p.stock }}</span>
             }
           </div>
 
           <div class="card-body">
             <div class="prod-info">
               <h3 class="prod-title" [title]="p.name">{{ p.name }}</h3>
+              @if (p.barcode) {
+                <div class="barcode-tag" title="Mã vạch sản phẩm">
+                  <app-icon name="barcode" [size]="12" />
+                  <span>{{ p.barcode }}</span>
+                </div>
+              }
               @if (p.description) {
                 <p class="muted small desc">{{ p.description }}</p>
               }
             </div>
 
+            <!-- Multi-UOM packaging options (Gói / Lốc / Thùng) -->
+            @if (p.uoms && p.uoms.length > 0) {
+              <div class="uom-selector">
+                <span class="uom-title">Quy cách:</span>
+                <div class="uom-chips">
+                  @for (u of p.uoms; track u.id) {
+                    <button
+                      type="button"
+                      class="uom-chip"
+                      [class.active]="getActiveUom(p)?.id === u.id"
+                      (click)="selectUom(p, u)"
+                    >
+                      <span class="uom-name">{{ u.uom_name }}</span>
+                      <span class="uom-price">{{ u.retail_price | money: p.currency }}</span>
+                    </button>
+                  }
+                </div>
+              </div>
+            }
+
             <div class="prod-footer">
               <div class="price-box">
-                <span class="price">{{ p.price | money: p.currency }}</span>
-                <span class="faint small">SKU: {{ p.sku }}</span>
+                <span class="price">{{ getActivePrice(p) | money: p.currency }}</span>
+                <span class="faint small">ĐVT: {{ getActiveUomName(p) }}</span>
               </div>
 
-              @if (p.stock > 0) {
-                @if (cart.quantityOf(p.id) > 0) {
+              @if ((p.hub_stock ?? p.stock) > 0) {
+                @if (getCartQty(p) > 0) {
                   <div class="qty-control">
-                    <button class="btn btn-ghost btn-sm btn-icon" (click)="cart.setQuantity(p.id, cart.quantityOf(p.id) - 1)">
+                    <button class="btn btn-ghost btn-sm btn-icon" (click)="decCart(p)">
                       <app-icon name="minus" [size]="14" />
                     </button>
-                    <span class="qty-num">{{ cart.quantityOf(p.id) }}</span>
-                    <button class="btn btn-ghost btn-sm btn-icon" [disabled]="cart.quantityOf(p.id) >= p.stock" (click)="cart.add(p, 1)">
+                    <span class="qty-num">{{ getCartQty(p) }}</span>
+                    <button class="btn btn-ghost btn-sm btn-icon" (click)="incCart(p)">
                       <app-icon name="plus" [size]="14" />
                     </button>
                   </div>
                 } @else {
                   <button class="btn btn-accent btn-sm" [id]="'add-to-cart-' + p.id" (click)="addToCart(p)">
-                    <app-icon name="cart" [size]="14" /> Add
+                    <app-icon name="cart" [size]="14" /> Thêm
                   </button>
                 }
               } @else {
-                <button class="btn btn-sm" disabled>Sold out</button>
+                <button class="btn btn-sm" disabled>Tạm hết hàng</button>
               }
             </div>
           </div>
         </div>
       }
     </div>
+
+    <app-pagination
+      [total]="total()"
+      [page]="page()"
+      [pageSize]="pageSize()"
+      (pageChange)="onPageChange($event)"
+      (pageSizeChange)="onPageSizeChange($event)"
+    />
+  }
+
+  <!-- Sticky Floating Cart Bar (7-Eleven / Food App Style) -->
+  @if (cart.count() > 0) {
+    <div class="floating-cart-bar">
+      <div class="floating-cart-content">
+        <div class="cart-summary-left">
+          <div class="cart-icon-bubble">
+            <app-icon name="cart" [size]="20" />
+            <span class="floating-badge">{{ cart.count() }}</span>
+          </div>
+          <div>
+            <div class="floating-total">{{ cart.total() | money: 'VND' }}</div>
+            <div class="floating-meta">{{ cart.count() }} món hàng đã chọn</div>
+          </div>
+        </div>
+        <a routerLink="/cart" class="btn btn-primary floating-checkout-btn">
+          <span>Xem giỏ hàng &amp; Thanh toán</span>
+          <app-icon name="arrow" [size]="16" />
+        </a>
+      </div>
+    </div>
   }
 </div>
+
+<!-- Modal Quản Lý / Thêm Danh Mục (Chủ Nhà & Admin) -->
+@if (showCategoryModal()) {
+  <app-modal
+    [title]="editingCategory() ? 'Chỉnh Sửa Danh Mục' : 'Thêm Danh Mục Hàng Hóa Mới'"
+    (closed)="showCategoryModal.set(false)"
+  >
+    <form (ngSubmit)="saveCategory()">
+      <div class="field mb-3">
+        <label for="cat-name">Tên danh mục <span class="text-danger">*</span></label>
+        <input
+          class="input"
+          id="cat-name"
+          name="name"
+          placeholder="VD: Đồ uống nóng, Nước ngọt có gas, Bánh kẹo nhập khẩu..."
+          [(ngModel)]="catForm.name"
+          required
+        />
+      </div>
+
+      <div class="row gap-2 mb-3">
+        <div class="field flex-1">
+          <label for="cat-icon">Biểu tượng (Icon)</label>
+          <select class="input" id="cat-icon" name="iconName" [(ngModel)]="catForm.iconName">
+            <option value="package">📦 Hàng hóa chung (Package)</option>
+            <option value="soup">🍜 Mì &amp; Đồ ăn liền (Soup)</option>
+            <option value="cup">☕ Đồ uống &amp; Nước giải khát (Cup)</option>
+            <option value="cookie">🍪 Bánh kẹo &amp; Ăn vặt (Cookie)</option>
+            <option value="droplet">🧴 Hóa phẩm &amp; Vệ sinh (Droplet)</option>
+            <option value="home">🏠 Đồ dùng phòng trọ (Home)</option>
+            <option value="gift">🎁 Combo tiết kiệm (Gift)</option>
+            <option value="zap">⚡ Nhanh / Tiện lợi (Zap)</option>
+          </select>
+        </div>
+
+        <div class="field flex-1">
+          <label for="cat-sort">Thứ tự hiển thị</label>
+          <input
+            class="input"
+            id="cat-sort"
+            type="number"
+            name="sortOrder"
+            [(ngModel)]="catForm.sortOrder"
+          />
+        </div>
+      </div>
+
+      <div class="field mb-3">
+        <label for="cat-desc">Mô tả ngắn</label>
+        <input
+          class="input"
+          id="cat-desc"
+          name="description"
+          placeholder="Mô tả nhóm hàng hóa..."
+          [(ngModel)]="catForm.description"
+        />
+      </div>
+
+      <div modal-actions class="row gap-2">
+        <button type="button" class="btn btn-secondary" (click)="showCategoryModal.set(false)">Hủy</button>
+        <button type="submit" class="btn btn-primary" [disabled]="savingCategory()">
+          @if (savingCategory()) { <span class="spinner"></span> }
+          <app-icon name="check" [size]="15" /> Lưu Danh Mục
+        </button>
+      </div>
+    </form>
+  </app-modal>
+}
+
+<!-- Modal Quét Mã Vạch Tra Cứu Sản Phẩm -->
+@if (showBarcodeModal()) {
+  <app-modal title="Quét Mã Vạch Tra Cứu Sản Phẩm" (closed)="showBarcodeModal.set(false)">
+    <form (ngSubmit)="searchBarcode()">
+      <div class="field mb-3">
+        <label for="lookup-barcode-input">Nhập hoặc quét mã vạch (EAN-13, Thùng, Lon...)</label>
+        <div class="row gap-2">
+          <input
+            class="input barcode-input flex-1"
+            id="lookup-barcode-input"
+            placeholder="Quét mã vạch sản phẩm..."
+            [(ngModel)]="barcodeInput"
+            name="barcode"
+            (keydown.enter)="searchBarcode()"
+            autofocus
+            required
+          />
+          <button type="submit" class="btn btn-primary" [disabled]="barcodeSearching()">
+            @if (barcodeSearching()) { <span class="spinner"></span> }
+            <app-icon name="search" [size]="15" /> Tra cứu
+          </button>
+        </div>
+      </div>
+    </form>
+
+    @if (barcodeResult(); as res) {
+      <div class="card barcode-result-card mt-2">
+        <div class="row justify-between align-center">
+          <div>
+            <h3 class="font-bold text-accent">{{ res.product.name }}</h3>
+            <div class="row gap-2 mt-1 small">
+              <span class="badge">{{ res.activeUomName }}</span>
+              <span class="text-primary font-bold">{{ res.activePrice | money: res.product.currency }}</span>
+              <span class="faint">Tồn kho Hub: <b>{{ res.hubStock }}</b></span>
+            </div>
+          </div>
+          <button class="btn btn-accent btn-sm" (click)="addBarcodeResultToCart()">
+            <app-icon name="cart" [size]="14" /> Thêm vào giỏ
+          </button>
+        </div>
+      </div>
+    }
+
+    <div modal-actions class="row gap-2">
+      <button class="btn btn-secondary" (click)="showBarcodeModal.set(false)">Đóng</button>
+    </div>
+  </app-modal>
+}

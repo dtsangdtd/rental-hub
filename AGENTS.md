@@ -101,9 +101,14 @@ Roles: `admin`, `landlord`, `accountant`, `tenant` (defined in `common/src/auth.
 | Invoices — read | all | own (`owner_id`) | all | own (`customer_id`) |
 | Payments / expenses / rent generation | ✅ | own | ✅ | ❌ |
 | Financial reports | all | own | all | ❌ |
-| Products — write | ✅ | own | ❌ | ❌ |
-| Orders — create/cancel own | ✅ | ✅ | ✅ | ✅ |
-| Orders — see all / fulfill | ✅ / ✅ | ❌ | ✅ / ❌ | ❌ |
+| Products / Hubs / UOMs — write (`/products`, `/hubs`) | ✅ | own | ❌ | ❌ |
+| Public guest shopping (`/shop`, `/cart`, `/guest-orders`, `/orders/:id`) | ✅ | ✅ | ✅ | ✅ (unauthenticated guests included) |
+| Commerce navigation (`/shop`, `/orders`) | ✅ | ✅ | ❌ | ✅ |
+| Orders — create/cancel own | ✅ | own | ❌ | ✅ |
+| Orders — see all / deliver / fulfill | ✅ / ✅ | own / ✅ | ❌ | ❌ |
+| Categories — add / edit / delete (`/categories`) | ✅ | ✅ (own/building) | ❌ | ❌ (read all) |
+| POS Counter Terminal & Barcode Inbound (`/pos/checkout`, `/inventory/barcode-import`) | ✅ | ✅ | ❌ | ❌ |
+| Temporary residence & absence (`/residence`) | all | own | all | ❌ |
 
 When adding an endpoint, **update this table**.
 
@@ -112,14 +117,17 @@ When adding an endpoint, **update this table**.
 ## 6. Business flows (event-driven)
 
 ```
-property-service ──property.lease.created──▶ accounting-service
-                                              • stores lease_billing read-model
-                                              • creates deposit invoice + first month rent invoice
-property-service ──property.lease.terminated▶ accounting-service (stop billing)
-commerce-service ──commerce.order.placed────▶ accounting-service (create order invoice)
-commerce-service ──commerce.order.cancelled─▶ accounting-service (void unpaid invoice)
-accounting-service ─accounting.invoice.paid─▶ commerce-service (order → paid)
-auth-service ─────auth.user.registered──────▶ (no consumers yet)
+property-service ──property.lease.created──────▶ accounting-service
+                                                  • stores lease_billing read-model
+                                                  • creates deposit invoice + first month rent invoice
+property-service ──property.lease.terminated────▶ accounting-service (stop billing)
+commerce-service ──commerce.order.placed────────▶ accounting-service (create order invoice)
+commerce-service ──commerce.order.paid──────────▶ accounting-service (mark order invoice paid)
+commerce-service ──commerce.order.cancelled─────▶ accounting-service (void unpaid invoice)
+commerce-service ──tenant.debt.charge_requested─▶ accounting-service (charges grocery debt to tenant room invoice)
+commerce-service ──notification.landlord.alert──▶ Web App (Ding-dong chime), Telegram Bot, Zalo Webhook
+accounting-service ─accounting.invoice.paid─────▶ commerce-service (order → paid)
+auth-service ─────auth.user.registered──────────▶ (no consumers yet)
 ```
 
 Monthly rent: `POST /api/accounting/invoices/generate-rent { "period": "YYYY-MM" }` — idempotent (unique index on lease+period).

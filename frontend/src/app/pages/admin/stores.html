@@ -1,0 +1,260 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <div class="eyebrow">Quản trị Hệ Thống · Admin</div>
+      <h1>Quản Lý Cửa Hàng &amp; Kho Mini-Hubs</h1>
+      <p class="subtitle">Khởi tạo và quản lý các điểm bán hàng, máy POS và kho mini tại từng tòa nhà/ký túc xá</p>
+    </div>
+    <div class="row header-actions">
+      <button class="btn btn-primary" id="btn-create-store" (click)="openCreate()">
+        <app-icon name="plus" /> Tạo Cửa Hàng Mới
+      </button>
+    </div>
+  </header>
+
+  <!-- KPI Cards -->
+  <div class="kpi-grid mb-4">
+    <div class="kpi-card">
+      <div class="kpi-icon accent"><app-icon name="building" [size]="24" /></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Tổng số Cửa Hàng / Hub</div>
+        <div class="kpi-value">{{ totalStores() }}</div>
+        <div class="kpi-hint faint small">Điểm bán hàng toàn hệ thống</div>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon success"><app-icon name="check" [size]="24" /></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Đang Hoạt Động</div>
+        <div class="kpi-value text-success">{{ activeStores() }}</div>
+        <div class="kpi-hint faint small">Mở cửa trên POS &amp; Ứng dụng</div>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon info"><app-icon name="package" [size]="24" /></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Mặt Hàng Kinh Doanh</div>
+        <div class="kpi-value text-accent">{{ totalProductsCount() }}</div>
+        <div class="kpi-hint faint small">Sản phẩm có trong các kho</div>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon warning"><app-icon name="tag" [size]="24" /></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Tổng Tồn Kho Tại Quầy</div>
+        <div class="kpi-value text-warning">{{ totalInventoryUnits() }}</div>
+        <div class="kpi-hint faint small">Đơn vị sản phẩm lưu kho Hubs</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters & Toolbar -->
+  <div class="card flush">
+    <div class="row toolbar p-3 justify-content-between align-items-center flex-wrap gap-3">
+      <div class="search flex-1" style="min-width: 280px; max-width: 480px;">
+        <app-icon name="search" [size]="16" />
+        <input
+          class="input"
+          id="store-search"
+          placeholder="Tìm theo tên cửa hàng, tòa nhà, địa chỉ..."
+          [ngModel]="searchQuery()"
+          (ngModelChange)="searchQuery.set($event)"
+        />
+      </div>
+
+      <div class="row gap-2 align-items-center">
+        <span class="faint small">Trạng thái:</span>
+        <button
+          class="btn btn-sm"
+          [class.btn-primary]="statusFilter() === 'ALL'"
+          [class.btn-ghost]="statusFilter() !== 'ALL'"
+          (click)="statusFilter.set('ALL')"
+        >
+          Tất cả ({{ totalStores() }})
+        </button>
+        <button
+          class="btn btn-sm"
+          [class.btn-success]="statusFilter() === 'ACTIVE'"
+          [class.btn-ghost]="statusFilter() !== 'ACTIVE'"
+          (click)="statusFilter.set('ACTIVE')"
+        >
+          Đang mở ({{ activeStores() }})
+        </button>
+        <button
+          class="btn btn-sm"
+          [class.btn-secondary]="statusFilter() === 'INACTIVE'"
+          [class.btn-ghost]="statusFilter() !== 'INACTIVE'"
+          (click)="statusFilter.set('INACTIVE')"
+        >
+          Tạm ngưng ({{ totalStores() - activeStores() }})
+        </button>
+      </div>
+    </div>
+
+    @if (loading()) {
+      <div class="skeleton-wrap stack p-4">
+        @for (i of [1, 2, 3, 4]; track i) { <div class="skeleton" style="height:56px"></div> }
+      </div>
+    } @else if (filtered().length === 0) {
+      <div class="empty">
+        <div class="empty-icon"><app-icon name="building" [size]="36" /></div>
+        <h3>Chưa tìm thấy cửa hàng / hub nào</h3>
+        <p>Bắt đầu tạo Cửa Hàng / Kho Mini-Hub cho tòa nhà để kích hoạt hệ thống bán lẻ và máy POS.</p>
+        <button class="btn btn-primary mt" (click)="openCreate()">
+          <app-icon name="plus" /> Tạo Cửa Hàng Ngay
+        </button>
+      </div>
+    } @else {
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Cửa Hàng / Điểm Bán</th>
+              <th>Tòa Nhà Liên Kết</th>
+              <th>Vị Trí &amp; Địa Chỉ</th>
+              <th class="center">Tồn Kho Quầy</th>
+              <th>Trạng Thái</th>
+              <th class="right">Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (h of filtered(); track h.id) {
+              <tr [class.faded-row]="!h.is_active">
+                <td>
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="store-badge-icon" [class.active]="h.is_active">
+                      <app-icon name="building" [size]="18" />
+                    </div>
+                    <div>
+                      <div class="font-bold primary-cell">{{ h.name }}</div>
+                      <div class="faint small mono">Mã Hub: {{ h.id ? h.id.slice(0, 8) : '' }}...</div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div class="font-bold text-accent">{{ getPropertyName(h.property_id) }}</div>
+                  <div class="faint small">{{ getPropertyAddress(h.property_id) }}</div>
+                </td>
+                <td>
+                  <div class="small">{{ h.address }}</div>
+                </td>
+                <td class="center font-bold">
+                  @if (h.total_inventory_qty && h.total_inventory_qty > 0) {
+                    <span class="badge info">📦 {{ h.total_inventory_qty }} đơn vị</span>
+                  } @else {
+                    <span class="faint small italic">Kho trống</span>
+                  }
+                </td>
+                <td>
+                  @if (h.is_active) {
+                    <span class="badge success">🟢 Đang hoạt động</span>
+                  } @else {
+                    <span class="badge neutral">⚪ Tạm ngưng</span>
+                  }
+                </td>
+                <td class="right nowrap">
+                  <div class="row actions-cell justify-content-end gap-1">
+                    <a class="btn btn-xs btn-primary" routerLink="/pos" title="Mở máy bán hàng POS">
+                      <app-icon name="barcode" [size]="13" /> POS
+                    </a>
+                    <button class="btn btn-xs btn-ghost" (click)="openEdit(h)" title="Chỉnh sửa thông tin">
+                      <app-icon name="edit" [size]="13" /> Sửa
+                    </button>
+                    <button
+                      class="btn btn-xs btn-ghost"
+                      [class.text-danger]="h.is_active"
+                      [class.text-success]="!h.is_active"
+                      (click)="toggleStatus(h)"
+                      [title]="h.is_active ? 'Tạm ngưng cửa hàng' : 'Mở lại cửa hàng'"
+                    >
+                      <app-icon [name]="h.is_active ? 'ban' : 'check'" [size]="13" />
+                      {{ h.is_active ? 'Đóng' : 'Mở' }}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>
+
+<!-- MODAL: CREATE / EDIT STORE (HUB) -->
+@if (editingStore() !== undefined) {
+  <app-modal
+    [title]="editingStore() ? 'Chỉnh Sửa Thông Tin Cửa Hàng' : 'Tạo Cửa Hàng / Kho Mini-Hub Mới'"
+    (closed)="editingStore.set(undefined)"
+  >
+    <form class="form-grid" (ngSubmit)="save()" #f="ngForm">
+      <div class="field">
+        <label for="store-property">Thuộc Tòa Nhà / Ký Túc Xá *</label>
+        <select
+          class="input"
+          id="store-property"
+          name="propertyId"
+          required
+          [(ngModel)]="form.propertyId"
+          (ngModelChange)="onPropertySelected($event)"
+        >
+          <option value="" disabled>-- Chọn tòa nhà triển khai cửa hàng --</option>
+          @for (p of properties(); track p.id) {
+            <option [value]="p.id">{{ p.name }} ({{ p.address }})</option>
+          }
+        </select>
+        <div class="hint faint small mt-1">Cửa hàng sẽ phục vụ cho cư dân phòng trọ tại tòa nhà này và khách vãng lai.</div>
+      </div>
+
+      <div class="field">
+        <label for="store-name">Tên Cửa Hàng / Điểm Bán *</label>
+        <input
+          class="input"
+          id="store-name"
+          name="name"
+          required
+          maxlength="255"
+          [(ngModel)]="form.name"
+          placeholder="VD: Cửa Hàng Tiện Lợi Tầng 1 - Tòa Sunrise A"
+        />
+      </div>
+
+      <div class="field">
+        <label for="store-address">Vị Trí Cụ Thể / Địa Chỉ Quầy Bán *</label>
+        <input
+          class="input"
+          id="store-address"
+          name="address"
+          required
+          maxlength="500"
+          [(ngModel)]="form.address"
+          placeholder="VD: Sảnh lễ tân tầng 1, Kế bên sảnh thang máy"
+        />
+        <div class="hint faint small mt-1">Vị trí giúp nhân viên và cư dân dễ dàng tìm đến mua hàng hoặc nhận đồ.</div>
+      </div>
+
+      @if (form.id) {
+        <div class="field">
+          <label class="checkbox-label d-flex align-items-center gap-2">
+            <input type="checkbox" name="isActive" [(ngModel)]="form.isActive" />
+            <span class="font-bold">Đang mở cửa kinh doanh (Kích hoạt trên hệ thống)</span>
+          </label>
+        </div>
+      }
+
+      <div class="actions row justify-content-end gap-2 mt-4">
+        <button type="button" class="btn btn-secondary" (click)="editingStore.set(undefined)">Hủy bỏ</button>
+        <button type="submit" class="btn btn-primary" [disabled]="saving() || !f.valid">
+          @if (saving()) {
+            Đang lưu...
+          } @else {
+            {{ form.id ? 'Cập Nhật Cửa Hàng' : 'Tạo Cửa Hàng Mới' }}
+          }
+        </button>
+      </div>
+    </form>
+  </app-modal>
+}

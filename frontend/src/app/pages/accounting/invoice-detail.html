@@ -1,5 +1,5 @@
 <div class="page">
-  <a routerLink="/invoices" class="btn btn-ghost btn-sm mb"><app-icon name="back" [size]="15" /> Invoices</a>
+  <a routerLink="/invoices" class="btn btn-ghost btn-sm mb"><app-icon name="back" [size]="15" /> {{ 'invoice.detailBackBtn' | t }}</a>
 
   @if (invoice(); as inv) {
     <header class="page-header">
@@ -10,10 +10,10 @@
       </div>
       <div class="row">
         <a [routerLink]="['/rental-bill']" [queryParams]="{ invoiceId: inv.id }" class="btn btn-secondary">
-          <app-icon name="receipt" [size]="16" /> Hóa đơn tiền nhà (PDF)
+          <app-icon name="receipt" [size]="16" /> {{ 'invoice.pdfBillBtn' | t }}
         </a>
         <app-status [value]="inv.status" />
-        @if (canVoid()) { <button class="btn btn-danger" id="invoice-void" (click)="voidInvoice()"><app-icon name="ban" [size]="16" /> Void</button> }
+        @if (canVoid()) { <button class="btn btn-danger" id="invoice-void" (click)="voidInvoice()"><app-icon name="ban" [size]="16" /> {{ 'invoice.voidBtn' | t }}</button> }
       </div>
     </header>
 
@@ -21,31 +21,31 @@
       <div class="stack">
         <div class="card">
           <div class="amounts">
-            <div><span class="faint small">Amount</span><b>{{ inv.amount | money: inv.currency }}</b></div>
-            <div><span class="faint small">Paid</span><b class="text-success">{{ inv.amount_paid | money: inv.currency }}</b></div>
-            <div><span class="faint small">Remaining</span><b [class.text-warning]="remaining() > 0">{{ remaining() | money: inv.currency }}</b></div>
+            <div><span class="faint small">{{ 'invoice.amountTotal' | t }}</span><b>{{ inv.amount | money: inv.currency }}</b></div>
+            <div><span class="faint small">{{ 'invoice.amountPaid' | t }}</span><b class="text-success">{{ inv.amount_paid | money: inv.currency }}</b></div>
+            <div><span class="faint small">{{ 'invoice.amountRemaining' | t }}</span><b [class.text-warning]="remaining() > 0">{{ remaining() | money: inv.currency }}</b></div>
           </div>
           <div class="progress mt progress-bar"><span [style.width.%]="paidPct()"></span></div>
-          <p class="faint small paid-pct-text">{{ paidPct() }}% paid</p>
+          <p class="faint small paid-pct-text">{{ 'invoice.paidPctText' | t: { pct: paidPct() } }}</p>
           <hr class="divider" />
           <dl class="kv">
-            <dt>Due date</dt><dd [class.text-danger]="overdue()">{{ inv.due_date | date: 'longDate' }} @if (overdue()) { · overdue }</dd>
-            @if (inv.period) { <dt>Period</dt><dd>{{ inv.period }}</dd> }
-            <dt>Reference</dt>
+            <dt>{{ 'invoice.colDue' | t }}</dt><dd [class.text-danger]="overdue()">{{ inv.due_date | date: 'dd/MM/yyyy' }} @if (overdue()) { · {{ 'status.expired' | t }} }</dd>
+            @if (inv.period) { <dt>{{ 'invoice.periodLabel' | t }}</dt><dd>{{ inv.period }}</dd> }
+            <dt>{{ 'invoice.referenceLabel' | t }}</dt>
             <dd>
               {{ inv.reference_type | label }}
               @if (inv.reference_type === 'order' && inv.reference_id) { · <a [routerLink]="['/orders', inv.reference_id]">view order</a> }
               @else if (inv.reference_id) { · <span class="mono faint">{{ inv.reference_id.slice(0, 8) }}</span> }
             </dd>
-            <dt>Currency</dt><dd>{{ inv.currency }}</dd>
-            <dt>Issued</dt><dd>{{ inv.created_at | date: 'medium' }}</dd>
+            <dt>{{ 'invoice.formCurrency' | t }}</dt><dd>{{ inv.currency }}</dd>
+            <dt>{{ 'invoice.issuedDate' | t }}</dt><dd>{{ inv.created_at | date: 'dd/MM/yyyy HH:mm' }}</dd>
           </dl>
         </div>
 
         <div class="card flush">
-          <div class="card-header payments-header"><h3>Payments</h3><span class="faint small">{{ inv.payments.length }} recorded</span></div>
+          <div class="card-header payments-header"><h3>{{ 'invoice.paymentsTitle' | t }}</h3><span class="faint small">{{ 'invoice.recordedPayments' | t: { count: inv.payments.length } }}</span></div>
           @if (inv.payments.length === 0) {
-            <div class="empty empty-payments"><p>No payments yet.</p></div>
+            <div class="empty empty-payments"><p>{{ 'invoice.noPayments' | t }}</p></div>
           } @else {
             <div class="timeline">
               @for (p of inv.payments; track p.id) {
@@ -54,7 +54,7 @@
                   <div class="tl-content"><b>{{ p.amount | money: inv.currency }}</b> <span class="muted">via {{ p.method | label }}</span>
                     @if (p.note) { <div class="faint small">{{ p.note }}</div> }
                   </div>
-                  <span class="faint small nowrap">{{ p.paid_at | date: 'medium' }}</span>
+                  <span class="faint small nowrap">{{ p.paid_at | date: 'dd/MM/yyyy HH:mm' }}</span>
                 </div>
               }
             </div>
@@ -64,25 +64,25 @@
 
       @if (canPay()) {
         <div class="card pay">
-          <h3>Record payment</h3>
-          <p class="muted small pay-subtitle">When the invoice is fully paid, linked shop orders are marked paid automatically.</p>
+          <h3>{{ 'invoice.recordPaymentTitle' | t }}</h3>
+          <p class="muted small pay-subtitle">{{ 'invoice.recordPaymentSubtitle' | t }}</p>
           <form class="stack" (ngSubmit)="pay()" #f="ngForm">
             <div class="field">
-              <label for="pay-amount">Amount ({{ inv.currency }})</label>
+              <label for="pay-amount">{{ 'invoice.formAmount' | t }} ({{ inv.currency }})</label>
               <input class="input" id="pay-amount" name="amount" type="number" min="0.01" step="0.01" [max]="remaining()" required [(ngModel)]="amount" />
-              <div class="row"><button type="button" class="btn btn-ghost btn-sm" (click)="amount = remaining()">Full ({{ remaining() | money: inv.currency }})</button>
-                <button type="button" class="btn btn-ghost btn-sm" (click)="amount = half()">Half</button></div>
+              <div class="row"><button type="button" class="btn btn-ghost btn-sm" (click)="amount = remaining()">Toàn bộ ({{ remaining() | money: inv.currency }})</button>
+                <button type="button" class="btn btn-ghost btn-sm" (click)="amount = half()">50%</button></div>
             </div>
             <div class="field">
-              <span class="label">Method</span>
+              <span class="label">{{ 'invoice.payMethod' | t }}</span>
               <div class="methods">
                 @for (m of methods; track m) {
                   <button type="button" class="method" [id]="'pay-method-' + m" [class.active]="method() === m" (click)="method.set(m)"><app-icon [name]="methodIcon(m)" [size]="16" />{{ m | label }}</button>
                 }
               </div>
             </div>
-            <div class="field"><label for="pay-note">Note</label><input class="input" id="pay-note" name="note" maxlength="500" [(ngModel)]="note" placeholder="optional" /></div>
-            <button class="btn btn-primary btn-block" id="pay-submit" [disabled]="saving() || f.invalid || !amount || amount > remaining()">@if (saving()) { <span class="spinner"></span> } Record payment</button>
+            <div class="field"><label for="pay-note">{{ 'invoice.payNote' | t }}</label><input class="input" id="pay-note" name="note" maxlength="500" [(ngModel)]="note" placeholder="Tùy chọn" /></div>
+            <button class="btn btn-primary btn-block" id="pay-submit" [disabled]="saving() || f.invalid || !amount || amount > remaining()">@if (saving()) { <span class="spinner"></span> } {{ 'invoice.recordPaymentTitle' | t }}</button>
           </form>
         </div>
       }

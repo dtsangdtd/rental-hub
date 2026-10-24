@@ -1,0 +1,376 @@
+:host {
+  display: block;
+}
+
+/* Stat Tiles Enhancements */
+.stat.hoverable {
+  cursor: pointer;
+  user-select: none;
+
+  &.active {
+    border-color: var(--primary) !important;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.04)) !important;
+    box-shadow: 0 0 0 2px var(--primary), var(--shadow-glow) !important;
+  }
+}
+
+.stat.pulse-warn {
+  border-color: hsla(38, 95%, 60%, 0.45);
+  animation: pulse-warn 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-warn {
+  0%, 100% {
+    box-shadow: 0 0 0 0 hsla(38, 95%, 60%, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 6px hsla(38, 95%, 60%, 0);
+  }
+}
+
+/* Filter Bar */
+.filter-bar {
+  padding: 12px 16px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Table Row Highlights */
+.row-warn td {
+  background: hsla(38, 95%, 60%, 0.04);
+}
+
+.row-danger td {
+  background: hsla(350, 85%, 64%, 0.06);
+}
+
+/* Resident Avatar */
+.resident-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 15px;
+  background: var(--grad-primary);
+  color: #ffffff;
+  box-shadow: var(--shadow-glow);
+  flex-shrink: 0;
+}
+
+/* Status Radio Selection in Modal */
+.status-radio-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+  }
+
+  .status-radio-card {
+    display: flex;
+    flex-direction: column;
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    transition: all 0.2s var(--ease);
+
+    &:hover {
+      border-color: var(--border-strong);
+      background: var(--surface-2);
+    }
+
+    &.selected {
+      border-color: var(--primary);
+      background: hsla(252, 92%, 68%, 0.12);
+      box-shadow: 0 0 0 1px var(--primary);
+    }
+
+    input[type='radio'] {
+      margin-bottom: 6px;
+      accent-color: var(--primary);
+    }
+
+    .title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .desc {
+      font-size: 11.5px;
+      color: var(--text-2);
+      margin-top: 2px;
+      line-height: 1.35;
+    }
+  }
+}
+
+/* Official Documents (Paper Sheet) inside Modal */
+.paper-sheet {
+  background: #ffffff;
+  color: #111827;
+  padding: 32px 36px;
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+  font-family: 'Times New Roman', Times, serif;
+  line-height: 1.5;
+  margin-bottom: 16px;
+  overflow-x: auto;
+
+  /* Official Headers */
+  .report-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+
+    .header-left, .header-right {
+      text-align: center;
+      line-height: 1.4;
+    }
+
+    .unit-title, .nation-title {
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .sub-title {
+      font-size: 13px;
+    }
+
+    .motto-title {
+      font-size: 13px;
+      font-weight: bold;
+      text-decoration: underline;
+    }
+
+    .date-line {
+      font-style: italic;
+      font-size: 12.5px;
+      margin-top: 4px;
+    }
+  }
+
+  .report-title-section {
+    text-align: center;
+    margin-bottom: 20px;
+
+    h2 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: bold;
+      letter-spacing: 0.03em;
+    }
+
+    .report-property-info {
+      margin: 4px 0 0;
+      font-size: 14px;
+    }
+  }
+
+  /* Police Registry Table */
+  .police-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 24px;
+    font-size: 13px;
+
+    th, td {
+      border: 1px solid #374151;
+      padding: 6px 8px;
+    }
+
+    th {
+      background: #f3f4f6;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    .tag-primary {
+      font-weight: bold;
+      color: #1d4ed8;
+      font-size: 12px;
+    }
+  }
+
+  .report-signatures {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 24px;
+    text-align: center;
+
+    .sig-block {
+      b { font-size: 14px; }
+      p { margin: 4px 0 60px; font-style: italic; font-size: 12.5px; }
+    }
+  }
+
+  /* CT01 Form Styling */
+  .ct01-header {
+    text-align: center;
+    position: relative;
+    margin-bottom: 20px;
+
+    .ct01-code {
+      position: absolute;
+      right: 0;
+      top: 0;
+      font-style: italic;
+      font-size: 11.5px;
+      max-width: 220px;
+      text-align: right;
+    }
+
+    .nation-block {
+      h3 { margin: 0; font-size: 15px; font-weight: bold; }
+      p { margin: 2px 0; font-weight: bold; font-size: 14px; }
+      .divider-line {
+        width: 130px;
+        height: 1px;
+        background: #111827;
+        margin: 0 auto 10px;
+      }
+    }
+
+    .form-main-title {
+      margin: 14px 0 6px;
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .to-police {
+      font-style: italic;
+      font-size: 13.5px;
+      margin-top: 6px;
+    }
+  }
+
+  .ct01-content {
+    font-size: 14px;
+
+    .ct-row {
+      margin-bottom: 9px;
+      display: flex;
+      gap: 6px;
+
+      .label { font-weight: 600; color: #111827; }
+      .value { flex: 1; border-bottom: 1px dotted #6b7280; min-height: 20px; }
+      .uppercase-bold { text-transform: uppercase; font-weight: bold; }
+    }
+
+    .ct-grid-3 {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      gap: 14px;
+    }
+
+    .ct-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .highlight-box {
+      background: #f9fafb;
+      padding: 10px 12px;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      margin: 14px 0;
+
+      .value { border-bottom: none; }
+    }
+
+    .roommates-section {
+      margin: 16px 0;
+
+      .table-caption {
+        margin-bottom: 6px;
+        font-size: 13.5px;
+      }
+
+      .mini-ct-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12.5px;
+
+        th, td {
+          border: 1px solid #374151;
+          padding: 5px 8px;
+        }
+
+        th {
+          background: #f3f4f6;
+          font-weight: bold;
+          text-align: center;
+        }
+      }
+    }
+
+    .ct-signatures {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 24px;
+
+      .sig-column {
+        width: 46%;
+        text-align: center;
+
+        .date-declaration {
+          font-style: italic;
+          font-size: 12.5px;
+          margin-bottom: 4px;
+        }
+
+        .sig-note {
+          font-size: 12px;
+          margin: 3px 0;
+        }
+
+        .sig-space {
+          height: 60px;
+        }
+      }
+    }
+  }
+}
+
+/* Clean Printing for A4 Format */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #printable-police-report, #printable-police-report * {
+    visibility: visible;
+  }
+
+  #printable-police-report {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  #printable-ct01, #printable-ct01 * {
+    visibility: visible;
+  }
+
+  #printable-ct01 {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .btn, .page-header, .filter-bar, .stat {
+    display: none !important;
+  }
+}

@@ -9,12 +9,13 @@ import { ConfirmService, ToastService } from '../../core/ui.services';
 import { FINANCE } from '../../nav';
 import { LabelPipe, MoneyPipe, StatusBadge } from '../../shared/format';
 import { Icon } from '../../shared/icon';
+import { TranslatePipe } from '../../shared/translate.pipe';
 
 const METHOD_ICONS: Record<PaymentMethod, string> = { cash: 'money', bank_transfer: 'building', card: 'wallet', ewallet: 'sparkle' };
 
 @Component({
   selector: 'app-invoice-detail',
-  imports: [FormsModule, RouterLink, DatePipe, MoneyPipe, LabelPipe, StatusBadge, Icon],
+  imports: [FormsModule, RouterLink, DatePipe, MoneyPipe, LabelPipe, StatusBadge, Icon, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './invoice-detail.html',
   styleUrl: './invoice-detail.scss',

@@ -1,0 +1,44 @@
+.lookup-card {
+  padding: 20px 24px;
+}
+
+.lookup-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+
+  @media (max-width: 600px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 8px);
+  padding: 0 12px;
+
+  .lookup-input {
+    border: none;
+    background: transparent;
+    padding: 10px 0;
+    flex: 1;
+
+    &:focus {
+      outline: none;
+    }
+  }
+}
+
+.lookup-btn {
+  height: 42px;
+  min-width: 140px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}

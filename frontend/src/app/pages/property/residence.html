@@ -1,0 +1,667 @@
+<div class="page">
+  <!-- Page Header -->
+  <header class="page-header">
+    <div>
+      <div class="eyebrow">Rentals · Quản lý cư trú</div>
+      <h1>{{ 'residence.title' | t }}</h1>
+      <p class="subtitle">{{ 'residence.subtitle' | t }}</p>
+    </div>
+    <div class="row">
+      <button class="btn btn-secondary" (click)="openPoliceReportModal()" id="btn-police-report">
+        <app-icon name="shield" />
+        <span>{{ 'residence.printReportBtn' | t }}</span>
+      </button>
+
+      <button class="btn btn-ghost btn-icon" (click)="onFilterChange()" [title]="'common.refresh' | t" id="btn-refresh">
+        <app-icon name="refresh" />
+      </button>
+    </div>
+  </header>
+
+  <!-- Stat Tiles Grid -->
+  <div class="grid grid-auto mb">
+    <!-- Total Residents -->
+    <div
+      class="card stat hoverable"
+      [class.active]="selectedStatus() === ''"
+      (click)="quickFilterStatus('')"
+      role="button"
+      tabindex="0"
+    >
+      <div class="orb"></div>
+      <div class="icon-wrap"><app-icon name="users" /></div>
+      <div class="label">{{ 'residence.statsTotal' | t }}</div>
+      <div class="value">{{ stats().total }}</div>
+      <div class="hint">Tất cả cư dân trong các phòng trọ</div>
+    </div>
+
+    <!-- Expiring Soon in 30 Days (Prominent Warning) -->
+    <div
+      class="card stat hoverable warm"
+      [class.active]="selectedStatus() === 'expiring_soon'"
+      [class.pulse-warn]="stats().expiringSoon > 0"
+      (click)="quickFilterStatus('expiring_soon')"
+      role="button"
+      tabindex="0"
+    >
+      <div class="orb"></div>
+      <div class="icon-wrap"><app-icon name="alert" /></div>
+      <div class="label text-warning">{{ 'residence.statsExpiringSoon' | t }}</div>
+      <div class="value text-warning">{{ stats().expiringSoon }}</div>
+      <div class="hint">Cần làm thủ tục gia hạn trong 30 ngày</div>
+    </div>
+
+    <!-- Expired -->
+    <div
+      class="card stat hoverable"
+      [class.active]="selectedStatus() === 'expired'"
+      (click)="quickFilterStatus('expired')"
+      role="button"
+      tabindex="0"
+    >
+      <div class="orb" style="background: var(--danger)"></div>
+      <div class="icon-wrap" style="background: hsla(350, 85%, 64%, 0.2); color: var(--danger)">
+        <app-icon name="ban" />
+      </div>
+      <div class="label text-danger">{{ 'residence.statsExpired' | t }}</div>
+      <div class="value text-danger">{{ stats().expired }}</div>
+      <div class="hint">Đã quá thời hạn đăng ký tạm trú</div>
+    </div>
+
+    <!-- Not Registered -->
+    <div
+      class="card stat hoverable"
+      [class.active]="selectedStatus() === 'not_registered'"
+      (click)="quickFilterStatus('not_registered')"
+      role="button"
+      tabindex="0"
+    >
+      <div class="orb"></div>
+      <div class="icon-wrap"><app-icon name="tag" /></div>
+      <div class="label">{{ 'residence.statsNotReg' | t }}</div>
+      <div class="value muted">{{ stats().notRegistered }}</div>
+      <div class="hint">Chưa nộp hồ sơ đăng ký</div>
+    </div>
+
+    <!-- Registered -->
+    <div
+      class="card stat hoverable accent"
+      [class.active]="selectedStatus() === 'registered'"
+      (click)="quickFilterStatus('registered')"
+      role="button"
+      tabindex="0"
+    >
+      <div class="orb"></div>
+      <div class="icon-wrap"><app-icon name="check" /></div>
+      <div class="label text-success">{{ 'residence.statsRegistered' | t }}</div>
+      <div class="value text-success">{{ stats().registered }}</div>
+      <div class="hint">Hồ sơ đã được cơ quan Công an duyệt</div>
+    </div>
+
+    <!-- Temporary Absence -->
+    <div
+      class="card stat hoverable"
+      [class.active]="selectedStatus() === 'temporary_absence'"
+      (click)="quickFilterStatus('temporary_absence')"
+      role="button"
+      tabindex="0"
+    >
+      <div class="orb"></div>
+      <div class="icon-wrap" style="background: hsla(205, 90%, 62%, 0.2); color: var(--info)">
+        <app-icon name="arrow" />
+      </div>
+      <div class="label" style="color: var(--info)">{{ 'residence.statsTempAbsence' | t }}</div>
+      <div class="value" style="color: var(--info)">{{ stats().temporaryAbsence }}</div>
+      <div class="hint">Đang vắng mặt khỏi phòng trọ</div>
+    </div>
+  </div>
+
+  <!-- Filter Controls -->
+  <div class="card row mb filter-bar">
+    <div class="search" style="flex: 1; min-width: 240px">
+      <app-icon name="search" />
+      <input
+        type="text"
+        class="input"
+        [placeholder]="'common.search' | t"
+        [(ngModel)]="searchQuery"
+        (keyup.enter)="loadItems()"
+      />
+    </div>
+
+    <select
+      class="input"
+      style="width: 220px"
+      [(ngModel)]="selectedPropertyId"
+      (change)="onFilterChange()"
+    >
+      <option value="">-- {{ 'residence.filterProperty' | t }} --</option>
+      @for (p of properties(); track p.id) {
+        <option [value]="p.id">{{ p.name }}</option>
+      }
+    </select>
+
+    <select
+      class="input"
+      style="width: 220px"
+      [(ngModel)]="selectedStatus"
+      (change)="loadItems()"
+    >
+      <option value="">-- {{ 'residence.filterStatus' | t }} --</option>
+      <option value="expiring_soon">{{ 'residence.statsExpiringSoon' | t }}</option>
+      <option value="expired">{{ 'residence.statsExpired' | t }}</option>
+      <option value="not_registered">{{ 'status.not_registered' | t }}</option>
+      <option value="pending">{{ 'status.pending' | t }}</option>
+      <option value="registered">{{ 'status.registered' | t }}</option>
+      <option value="temporary_absence">{{ 'status.temporary_absence' | t }}</option>
+    </select>
+
+    @if (searchQuery() || selectedPropertyId() || selectedStatus()) {
+      <button
+        class="btn btn-ghost btn-sm"
+        (click)="searchQuery.set(''); selectedPropertyId.set(''); selectedStatus.set(''); onFilterChange()"
+      >
+        <app-icon name="x" [size]="14" />
+        <span>Xóa lọc</span>
+      </button>
+    }
+  </div>
+
+  <!-- Resident List Table -->
+  <div class="card flush">
+    @if (loading()) {
+      <div class="empty">
+        <div class="spinner" style="margin: 0 auto 12px; width: 24px; height: 24px"></div>
+        <p class="muted">{{ 'common.loading' | t }}</p>
+      </div>
+    } @else if (items().length === 0) {
+      <div class="empty">
+        <div class="empty-icon"><app-icon name="users" [size]="28" /></div>
+        <h3>{{ 'common.noData' | t }}</h3>
+        <p class="muted">Không tìm thấy cư dân nào phù hợp với điều kiện tìm kiếm.</p>
+      </div>
+    } @else {
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>{{ 'residence.residentName' | t }}</th>
+              <th>{{ 'residence.roomAndProperty' | t }}</th>
+              <th>{{ 'residence.cccdAndPhone' | t }}</th>
+              <th>{{ 'residence.residenceStatus' | t }}</th>
+              <th>{{ 'residence.termAndCode' | t }}</th>
+              <th class="right">{{ 'common.actions' | t }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of items(); track item.id) {
+              <tr [class.row-warn]="item.computed_status === 'expiring_soon'" [class.row-danger]="item.computed_status === 'expired'">
+                <td class="primary-cell">
+                  <div class="row" style="gap: 6px">
+                    <span>{{ item.full_name }}</span>
+                    @if (item.is_primary) {
+                      <span class="badge primary small" title="Đại diện hợp đồng thuê">Đại diện</span>
+                    }
+                  </div>
+                  <div class="small faint" style="margin-top: 2px">
+                    <span>{{ item.relationship || 'Người ở cùng' }}</span>
+                    @if (item.gender) { <span> · {{ item.gender }}</span> }
+                    @if (item.birth_date) { <span> · {{ item.birth_date | date: 'dd/MM/yyyy' }}</span> }
+                  </div>
+                </td>
+
+                <td>
+                  <span class="badge neutral" style="font-weight: 700">{{ item.unit_name }}</span>
+                  <div class="faint small" [title]="item.property_address" style="margin-top: 3px">
+                    {{ item.property_name }}
+                  </div>
+                </td>
+
+                <td>
+                  <div class="mono" style="font-weight: 600">{{ item.id_number || '—' }}</div>
+                  @if (item.phone) {
+                    <div class="faint small" style="margin-top: 2px">{{ item.phone }}</div>
+                  }
+                </td>
+
+                <td>
+                  <app-status [value]="item.computed_status" />
+                  @if (item.computed_status === 'expiring_soon' && item.days_until_expiry !== null) {
+                    <div class="small text-warning" style="margin-top: 4px; font-weight: 600">
+                      ⚠️ {{ 'residence.daysRemaining' | t: { days: item.days_until_expiry } }}
+                    </div>
+                  } @else if (item.computed_status === 'expired' && item.days_until_expiry !== null) {
+                    <div class="small text-danger" style="margin-top: 4px; font-weight: 600">
+                      ❌ {{ 'residence.daysExpired' | t: { days: -item.days_until_expiry } }}
+                    </div>
+                  }
+                </td>
+
+                <td>
+                  @if (item.computed_status === 'temporary_absence') {
+                    <span class="badge info">Tạm vắng</span>
+                    @if (item.temp_absence_destination) {
+                      <div class="faint small" style="margin-top: 2px">Đến: {{ item.temp_absence_destination }}</div>
+                    }
+                    @if (item.temp_absence_reason) {
+                      <div class="faint small">Lý do: {{ item.temp_absence_reason }}</div>
+                    }
+                  } @else if (item.temp_reg_start_date || item.temp_reg_end_date) {
+                    <div class="small">
+                      <span>{{ item.temp_reg_start_date | date: 'dd/MM/yyyy' }}</span>
+                      <span class="muted"> → </span>
+                      <span>{{ item.temp_reg_end_date | date: 'dd/MM/yyyy' }}</span>
+                    </div>
+                    @if (item.temp_reg_code) {
+                      <div class="mono small muted" style="margin-top: 2px">
+                        <code>{{ item.temp_reg_code }}</code>
+                      </div>
+                    }
+                  } @else {
+                    <span class="faint">—</span>
+                  }
+                </td>
+
+                <td class="right">
+                  <div class="row" style="justify-content: flex-end; gap: 6px">
+                    <button class="btn btn-ghost btn-sm" (click)="openCt01Modal(item)" title="Xuất tờ khai CT01">
+                      <app-icon name="file" [size]="14" />
+                      <span>CT01</span>
+                    </button>
+
+                    @if (canManage()) {
+                      <button class="btn btn-primary btn-sm" (click)="openUpdateModal(item)" title="Cập nhật trạng thái">
+                        <app-icon name="edit" [size]="14" />
+                        <span>{{ 'residence.updateStatusBtn' | t }}</span>
+                      </button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination Component -->
+      <app-pagination
+        [total]="total()"
+        [page]="page()"
+        [pageSize]="pageSize()"
+        [pageSizeOptions]="[10, 20, 50]"
+        (pageChange)="onPageChange($event)"
+        (pageSizeChange)="onPageSizeChange($event)"
+      />
+    }
+  </div>
+
+  <!-- Modal: Cập nhật Tạm trú / Tạm vắng -->
+  @if (showUpdateModal()) {
+    <app-modal [title]="'residence.modalTitle' | t" [width]="580" (closed)="showUpdateModal.set(false)">
+      @if (activeResident(); as r) {
+        <div class="stack">
+          <!-- Resident Summary Box -->
+          <div class="card" style="padding: 14px; background: var(--surface-2); border-color: var(--border)">
+            <div class="row" style="gap: 12px">
+              <div class="resident-avatar">{{ r.full_name.slice(0, 1) }}</div>
+              <div>
+                <h3 style="margin: 0">{{ r.full_name }}</h3>
+                <p class="muted small" style="margin-top: 2px">
+                  Phòng {{ r.unit_name }} · {{ r.property_name }} | CCCD: <b>{{ r.id_number || 'Chưa cập nhật' }}</b>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Status Selection Cards -->
+          <div class="field">
+            <label>{{ 'residence.selectStatus' | t }}</label>
+            <div class="status-radio-grid">
+              <label class="status-radio-card" [class.selected]="updateForm.tempRegStatus === 'registered'">
+                <input type="radio" name="tempStatus" value="registered" [(ngModel)]="updateForm.tempRegStatus" />
+                <span class="title">Đã đăng ký tạm trú</span>
+                <span class="desc">Đã được Công an / Cổng DVC duyệt</span>
+              </label>
+
+              <label class="status-radio-card" [class.selected]="updateForm.tempRegStatus === 'pending'">
+                <input type="radio" name="tempStatus" value="pending" [(ngModel)]="updateForm.tempRegStatus" />
+                <span class="title">Đang chờ duyệt</span>
+                <span class="desc">Đã nộp tờ khai, đang chờ xử lý</span>
+              </label>
+
+              <label class="status-radio-card" [class.selected]="updateForm.tempRegStatus === 'temporary_absence'">
+                <input type="radio" name="tempStatus" value="temporary_absence" [(ngModel)]="updateForm.tempRegStatus" />
+                <span class="title">Đang tạm vắng</span>
+                <span class="desc">Tạm rời khỏi phòng trọ (nghỉ hè, công tác)</span>
+              </label>
+
+              <label class="status-radio-card" [class.selected]="updateForm.tempRegStatus === 'not_registered'">
+                <input type="radio" name="tempStatus" value="not_registered" [(ngModel)]="updateForm.tempRegStatus" />
+                <span class="title">Chưa đăng ký</span>
+                <span class="desc">Chưa làm thủ tục tạm trú</span>
+              </label>
+            </div>
+          </div>
+
+          @if (updateForm.tempRegStatus === 'temporary_absence') {
+            <!-- Temporary Absence Fields -->
+            <div class="form-grid">
+              <div class="field">
+                <label>{{ 'residence.absenceReason' | t }}</label>
+                <input
+                  type="text"
+                  class="input"
+                  placeholder="Ví dụ: Về quê, Đi công tác..."
+                  [(ngModel)]="updateForm.tempAbsenceReason"
+                />
+              </div>
+
+              <div class="field">
+                <label>{{ 'residence.absenceDestination' | t }}</label>
+                <input
+                  type="text"
+                  class="input"
+                  placeholder="Ví dụ: Nam Định, TP. Đà Nẵng..."
+                  [(ngModel)]="updateForm.tempAbsenceDestination"
+                />
+              </div>
+            </div>
+          } @else {
+            <!-- Temporary Residence Dates & DVC Code -->
+            <div class="form-grid">
+              <div class="field">
+                <label>{{ 'residence.startDate' | t }}</label>
+                <input type="date" class="input" [(ngModel)]="updateForm.tempRegStartDate" />
+              </div>
+
+              <div class="field">
+                <div class="row" style="justify-content: space-between">
+                  <label>{{ 'residence.endDate' | t }}</label>
+                  <div class="row" style="gap: 6px">
+                    <button type="button" class="btn btn-ghost btn-sm" style="height: 20px; padding: 0 6px; font-size: 11px" (click)="setTermYears(1)">+1 Năm</button>
+                    <button type="button" class="btn btn-ghost btn-sm" style="height: 20px; padding: 0 6px; font-size: 11px" (click)="setTermYears(2)">+2 Năm</button>
+                  </div>
+                </div>
+                <input type="date" class="input" [(ngModel)]="updateForm.tempRegEndDate" />
+              </div>
+
+              <div class="field full">
+                <label>{{ 'residence.dvcCode' | t }}</label>
+                <input
+                  type="text"
+                  class="input"
+                  placeholder="Ví dụ: 000.00.00.H57-231102-0001"
+                  [(ngModel)]="updateForm.tempRegCode"
+                />
+              </div>
+            </div>
+          }
+
+          <div class="field">
+            <label>{{ 'residence.notes' | t }}</label>
+            <textarea
+              class="input"
+              rows="2"
+              placeholder="Ghi chú thêm về cư dân..."
+              [(ngModel)]="updateForm.tempRegNotes"
+            ></textarea>
+          </div>
+
+          <div class="row" style="justify-content: flex-end; margin-top: 10px; gap: 8px">
+            <button class="btn btn-ghost" (click)="showUpdateModal.set(false)">{{ 'common.cancel' | t }}</button>
+            <button class="btn btn-primary" [disabled]="saving()" (click)="saveUpdate()">
+              @if (saving()) {
+                <span class="spinner"></span>
+              }
+              <span>{{ 'common.save' | t }}</span>
+            </button>
+          </div>
+        </div>
+      }
+    </app-modal>
+  }
+
+  <!-- Modal: Danh sách Khai báo Tạm trú nộp Công an khu vực (Printable A4 Report) -->
+  @if (showPoliceReportModal()) {
+    <app-modal [title]="'Danh sách khai báo tạm trú nộp Công an'" [width]="960" (closed)="showPoliceReportModal.set(false)">
+      <div class="paper-sheet" id="printable-police-report">
+        <!-- Official Document Header -->
+        <div class="report-header">
+          <div class="header-left">
+            <div class="unit-title">CÔNG AN PHƯỜNG / XÃ ........................</div>
+            <div class="sub-title">CÔNG AN KHU VỰC ...........................</div>
+          </div>
+          <div class="header-right">
+            <div class="nation-title">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+            <div class="motto-title">Độc lập - Tự do - Hạnh phúc</div>
+            <div class="date-line">......, ngày ..... tháng ..... năm 20...</div>
+          </div>
+        </div>
+
+        <div class="report-title-section">
+          <h2>DANH SÁCH NGƯỜI ĐĂNG KÝ TẠM TRÚ</h2>
+          <p class="report-property-info">
+            Tại cơ sở lưu trú: <b>{{ selectedPropertyId() ? (properties()[0]?.name || 'Tất cả cơ sở') : 'Cơ sở cho thuê trọ' }}</b>
+          </p>
+        </div>
+
+        <!-- Table for print -->
+        <table class="police-table">
+          <thead>
+            <tr>
+              <th style="width: 40px">STT</th>
+              <th>Họ và tên</th>
+              <th style="width: 90px">Ngày sinh</th>
+              <th style="width: 60px">Giới tính</th>
+              <th style="width: 120px">Số CCCD / ĐDCN</th>
+              <th style="width: 95px">Điện thoại</th>
+              <th style="width: 70px">Phòng</th>
+              <th style="width: 90px">Tạm trú từ</th>
+              <th style="width: 90px">Tạm trú đến</th>
+              <th>Mã hồ sơ DVC / Ghi chú</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of items(); track item.id; let i = $index) {
+              <tr>
+                <td class="text-center">{{ i + 1 }}</td>
+                <td>
+                  <b>{{ item.full_name }}</b>
+                  @if (item.is_primary) {
+                    <span class="tag-primary"> (Chủ HĐ)</span>
+                  }
+                </td>
+                <td class="text-center">{{ item.birth_date | date: 'dd/MM/yyyy' }}</td>
+                <td class="text-center">{{ item.gender || '—' }}</td>
+                <td class="font-mono text-center">{{ item.id_number || '—' }}</td>
+                <td class="text-center">{{ item.phone || '—' }}</td>
+                <td class="text-center"><b>{{ item.unit_name }}</b></td>
+                <td class="text-center">{{ item.temp_reg_start_date | date: 'dd/MM/yyyy' }}</td>
+                <td class="text-center">{{ item.temp_reg_end_date | date: 'dd/MM/yyyy' }}</td>
+                <td>{{ item.temp_reg_code || item.notes || '—' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+
+        <!-- Signatures -->
+        <div class="report-signatures">
+          <div class="sig-block">
+            <b>CÔNG AN KHU VỰC</b>
+            <p>(Ký, ghi rõ họ tên)</p>
+          </div>
+          <div class="sig-block">
+            <b>CHỦ CƠ SỞ CHO THUÊ / NGƯỜI LẬP</b>
+            <p>(Ký, ghi rõ họ tên)</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="row" style="justify-content: flex-end; gap: 8px">
+        <button class="btn btn-ghost" (click)="showPoliceReportModal.set(false)">{{ 'common.close' | t }}</button>
+        <button class="btn btn-primary" (click)="printCurrentView()">
+          <app-icon name="print" [size]="16" />
+          <span>{{ 'common.print' | t }}</span>
+        </button>
+      </div>
+    </app-modal>
+  }
+
+  <!-- Modal: Tờ khai Thay đổi thông tin cư trú (Mẫu CT01) -->
+  @if (showCt01Modal()) {
+    <app-modal [title]="'Tờ khai thay đổi thông tin cư trú (Mẫu CT01)'" [width]="940" (closed)="showCt01Modal.set(false)">
+      @if (loadingCt01()) {
+        <div class="empty">
+          <div class="spinner" style="margin: 0 auto 12px; width: 24px; height: 24px"></div>
+          <p class="muted">Đang tải dữ liệu Mẫu CT01...</p>
+        </div>
+      } @else if (ct01Data(); as ct) {
+        <div class="paper-sheet" id="printable-ct01">
+          <!-- CT01 Header -->
+          <div class="ct01-header">
+            <div class="ct01-code">Mẫu CT01 ban hành kèm theo Thông tư số 66/2023/TT-BCA</div>
+            <div class="nation-block">
+              <h3>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</h3>
+              <p>Độc lập - Tự do - Hạnh phúc</p>
+              <div class="divider-line"></div>
+            </div>
+            <h2 class="form-main-title">TỜ KHAI THAY ĐỔI THÔNG TIN CƯ TRÚ</h2>
+            <div class="to-police">
+              Kính gửi: Công an phường/xã ............................................................................
+            </div>
+          </div>
+
+          <!-- Section 1: Resident Info -->
+          <div class="ct01-content">
+            <div class="ct-row">
+              <span class="label">1. Họ, chữ đệm và tên (viết in hoa):</span>
+              <span class="value uppercase-bold">{{ ct.resident.fullName }}</span>
+            </div>
+
+            <div class="ct-grid-3">
+              <div class="ct-row">
+                <span class="label">2. Ngày sinh:</span>
+                <span class="value">{{ ct.resident.birthDate | date: 'dd/MM/yyyy' }}</span>
+              </div>
+              <div class="ct-row">
+                <span class="label">3. Giới tính:</span>
+                <span class="value">{{ ct.resident.gender || '—' }}</span>
+              </div>
+              <div class="ct-row">
+                <span class="label">4. Quốc tịch:</span>
+                <span class="value">{{ ct.resident.nationality }}</span>
+              </div>
+            </div>
+
+            <div class="ct-grid-2">
+              <div class="ct-row">
+                <span class="label">5. Số định danh / CCCD:</span>
+                <span class="value font-mono">{{ ct.resident.idNumber || '—' }}</span>
+              </div>
+              <div class="ct-row">
+                <span class="label">6. Điện thoại:</span>
+                <span class="value">{{ ct.resident.phone || '—' }}</span>
+              </div>
+            </div>
+
+            <div class="ct-row">
+              <span class="label">7. Nơi thường trú (Hộ khẩu):</span>
+              <span class="value">{{ ct.resident.permanentAddress || '...................................................................................................' }}</span>
+            </div>
+
+            <div class="ct-row">
+              <span class="label">8. Nơi tạm trú hiện tại:</span>
+              <span class="value">
+                Phòng <b>{{ ct.unit.name }}</b>, Nhà trọ <b>{{ ct.property.name }}</b>, Địa chỉ: <b>{{ ct.property.address }}</b>
+              </span>
+            </div>
+
+            <div class="ct-grid-2">
+              <div class="ct-row">
+                <span class="label">9. Chủ sở hữu chỗ ở / Chủ nhà:</span>
+                <span class="value">{{ ct.landlord.fullName }}</span>
+              </div>
+              <div class="ct-row">
+                <span class="label">Quan hệ với người kê khai:</span>
+                <span class="value">Chủ nhà cho thuê</span>
+              </div>
+            </div>
+
+            <div class="ct-row highlight-box">
+              <span class="label">10. Nội dung đề nghị:</span>
+              <span class="value">
+                @if (ct.resident.tempRegStatus === 'temporary_absence') {
+                  <b>Khai báo tạm vắng</b>. Lý do: {{ ct.resident.tempAbsenceReason || 'Vắng mặt khỏi nơi cư trú' }}. Nơi đến: {{ ct.resident.tempAbsenceDestination || '.....................' }}
+                } @else {
+                  <b>Đăng ký tạm trú</b> tại phòng {{ ct.unit.name }}, địa chỉ: {{ ct.property.address }}.
+                  @if (ct.resident.tempRegStartDate && ct.resident.tempRegEndDate) {
+                    Thời hạn: từ ngày {{ ct.resident.tempRegStartDate | date: 'dd/MM/yyyy' }} đến ngày {{ ct.resident.tempRegEndDate | date: 'dd/MM/yyyy' }}.
+                  }
+                }
+              </span>
+            </div>
+
+            <!-- Roommates table if any -->
+            @if (ct.roomOccupants.length > 0) {
+              <div class="roommates-section">
+                <div class="table-caption">
+                  <b>11. Những người cùng thay đổi thông tin cư trú (Người ở cùng phòng):</b>
+                </div>
+                <table class="mini-ct-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 35px">STT</th>
+                      <th>Họ và tên</th>
+                      <th>Ngày sinh</th>
+                      <th>Giới tính</th>
+                      <th>Số CCCD / ĐDCN</th>
+                      <th>Quan hệ với người kê khai</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (occ of ct.roomOccupants; track occ.id; let idx = $index) {
+                      <tr>
+                        <td class="text-center">{{ idx + 1 }}</td>
+                        <td>{{ occ.fullName }}</td>
+                        <td class="text-center">{{ occ.birthDate | date: 'dd/MM/yyyy' }}</td>
+                        <td class="text-center">{{ occ.gender || '—' }}</td>
+                        <td class="text-center font-mono">{{ occ.idNumber || '—' }}</td>
+                        <td>{{ occ.relationship }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+
+            <!-- Signatures Section -->
+            <div class="ct-signatures">
+              <div class="sig-column">
+                <b>Ý KIẾN CỦA CHỦ HỘ / CHỦ NHÀ CHO THUÊ</b>
+                <p class="sig-note"><i>(Đồng ý cho người trên được đăng ký tạm trú)</i></p>
+                <div class="sig-space"></div>
+                <p><b>{{ ct.landlord.fullName }}</b></p>
+              </div>
+
+              <div class="sig-column">
+                <div class="date-declaration">......, ngày ..... tháng ..... năm 20...</div>
+                <b>NGƯỜI KÊ KHAI</b>
+                <p class="sig-note"><i>(Ký, ghi rõ họ tên)</i></p>
+                <div class="sig-space"></div>
+                <p><b>{{ ct.resident.fullName }}</b></p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row" style="justify-content: flex-end; gap: 8px">
+          <button class="btn btn-ghost" (click)="showCt01Modal.set(false)">{{ 'common.close' | t }}</button>
+          <button class="btn btn-primary" (click)="printCurrentView()">
+            <app-icon name="print" [size]="16" />
+            <span>{{ 'residence.printCt01Btn' | t }}</span>
+          </button>
+        </div>
+      }
+    </app-modal>
+  }
+</div>

@@ -1,0 +1,3 @@
+-- Migration 004: Sample demo grocery data has been removed.
+-- Migrations must strictly contain schema DDL, not demo/sample business data.
+-- Demo seeding has been moved to a separate explicit seed script (npm run seed).

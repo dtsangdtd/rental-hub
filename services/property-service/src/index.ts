@@ -12,7 +12,7 @@ import {
 } from '@rental/common';
 import { buildRouter } from './routes';
 
-const SERVICE = 'property-service';
+const SERVICE = 'property-service'; // restarted after migration 011 fix
 
 async function main() {
   const logger = createLogger(SERVICE);
@@ -26,7 +26,11 @@ async function main() {
   bus.attachOutbox(pool);
 
   const app = createApp(SERVICE);
-  app.use(requireAuth(jwtSecret));
+  const authMiddleware = requireAuth(jwtSecret);
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/internal/')) return next();
+    return authMiddleware(req, res, next);
+  });
   app.use('/', buildRouter({ pool, bus }));
   app.use(errorHandler(logger));
 

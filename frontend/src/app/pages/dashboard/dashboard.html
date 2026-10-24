@@ -3,7 +3,7 @@
     <div class="hero-glow"></div>
     <div class="hero-text">
       <div class="eyebrow">{{ today | date: 'EEEE, d MMMM y' }}</div>
-      <h1>{{ greeting }}, {{ auth.user()?.fullName?.split(' ')?.[0] }} 👋</h1>
+      <h1>{{ greeting() }}, {{ auth.user()?.fullName?.split(' ')?.[0] }} 👋</h1>
       <p class="muted">
         @if (isFinance()) { Here's how your portfolio is doing this month. }
         @else { Track your invoices and orders, or shop for your home. }

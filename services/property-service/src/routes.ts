@@ -14,6 +14,8 @@ import {
   LeaseCreatedData,
   LeaseTerminatedData,
   notFound,
+  paginatedResponse,
+  parsePagination,
   PropertyAutoInvoiceToggledData,
   Queryable,
   requireRole,
@@ -40,6 +42,10 @@ const propertySchema = z.object({
   bankQrCode: z.string().optional().nullable(),
   autoInvoice: z.boolean().default(false),
   autoInvoiceDay: z.number().int().min(1).max(28).default(5),
+  zaloWebhookUrl: z.string().max(500).optional().nullable(),
+  zaloGroupId: z.string().max(100).optional().nullable(),
+  telegramChatId: z.string().max(100).optional().nullable(),
+  notifyOnNewOrder: z.boolean().default(true),
 });
 const propertyPatchSchema = propertySchema.partial();
 const unitSchema = z.object({
@@ -91,9 +97,19 @@ const occupantSchema = z.object({
 });
 const occupantPatchSchema = occupantSchema.partial();
 
+const residenceUpdateSchema = z.object({
+  tempRegStatus: z.enum(['not_registered', 'pending', 'registered', 'expired', 'temporary_absence']),
+  tempRegStartDate: isoDate.nullable().optional(),
+  tempRegEndDate: isoDate.nullable().optional(),
+  tempRegCode: z.string().max(100).nullable().optional(),
+  tempRegNotes: z.string().max(1000).nullable().optional(),
+  tempAbsenceReason: z.string().max(500).nullable().optional(),
+  tempAbsenceDestination: z.string().max(300).nullable().optional(),
+});
+
 /** Strictly check that the current user owns the property/resource */
 function assertOwner(user: AuthUser, ownerId: string) {
-  if (user.id !== ownerId) throw forbidden('You do not have permission to view or manage this property');
+  if (user.role !== 'admin' && user.id !== ownerId) throw forbidden('You do not have permission to view or manage this property');
 }
 
 /** For list endpoints: strictly filter by owner so every user only sees their own properties/data */
@@ -118,17 +134,35 @@ export function buildRouter(deps: { pool: Pool; bus: EventBus }): Router {
     '/properties',
     read,
     asyncHandler(async (req, res) => {
+      const { page, limit, offset } = parsePagination(req.query);
       const f = ownerFilter(currentUser(req), 'p.owner_id');
+      const q = (req.query.q as string | undefined)?.trim();
+      const conditions = [f.where];
+      const countParams = [...f.params];
+      if (q) {
+        countParams.push(`%${q}%`);
+        conditions.push(`(p.name ILIKE $${countParams.length} OR p.address ILIKE $${countParams.length} OR p.description ILIKE $${countParams.length})`);
+      }
+      const whereClause = conditions.join(' AND ');
+
+      const countRes = await pool.query(
+        `SELECT COUNT(DISTINCT p.id)::int AS total FROM properties p WHERE ${whereClause}`,
+        countParams,
+      );
+      const total = countRes.rows[0]?.total ?? 0;
+
+      const params = [...countParams, limit, offset];
       const { rows } = await pool.query(
         `SELECT p.*,
                 COUNT(u.id)::int AS unit_count,
                 COUNT(u.id) FILTER (WHERE u.status = 'occupied')::int AS occupied_count
            FROM properties p LEFT JOIN units u ON u.property_id = p.id
-          WHERE ${f.where}
-          GROUP BY p.id ORDER BY p.created_at DESC`,
-        f.params,
+          WHERE ${whereClause}
+          GROUP BY p.id ORDER BY p.created_at DESC
+          LIMIT $${params.length - 1} OFFSET $${params.length}`,
+        params,
       );
-      res.json({ items: rows });
+      res.json(paginatedResponse(rows, total, page, limit));
     }),
   );
 
@@ -138,8 +172,14 @@ export function buildRouter(deps: { pool: Pool; bus: EventBus }): Router {
     asyncHandler(async (req, res) => {
       const body = validate(propertySchema, req.body);
       const { rows } = await pool.query(
-        `INSERT INTO properties (owner_id, name, address, description, electricity_rate, water_rate, internet_rate, cleaning_rate, parking_rate, bank_name, bank_account_number, bank_account_name, bank_qr_code, auto_invoice, auto_invoice_day)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING *`,
+        `INSERT INTO properties (
+           owner_id, name, address, description,
+           electricity_rate, water_rate, internet_rate, cleaning_rate, parking_rate,
+           bank_name, bank_account_number, bank_account_name, bank_qr_code,
+           auto_invoice, auto_invoice_day,
+           zalo_webhook_url, zalo_group_id, telegram_chat_id, notify_on_new_order
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19) RETURNING *`,
         [
           currentUser(req).id,
           body.name,
@@ -156,6 +196,10 @@ export function buildRouter(deps: { pool: Pool; bus: EventBus }): Router {
           body.bankQrCode ?? null,
           body.autoInvoice,
           body.autoInvoiceDay,
+          body.zaloWebhookUrl ?? null,
+          body.zaloGroupId ?? null,
+          body.telegramChatId ?? null,
+          body.notifyOnNewOrder ?? true,
         ],
       );
       res.status(201).json(rows[0]);
@@ -187,7 +231,11 @@ export function buildRouter(deps: { pool: Pool; bus: EventBus }): Router {
            bank_account_name = COALESCE($12, bank_account_name),
            bank_qr_code = CASE WHEN $13::boolean THEN $14 ELSE bank_qr_code END,
            auto_invoice = COALESCE($15, auto_invoice),
-           auto_invoice_day = COALESCE($16, auto_invoice_day)
+           auto_invoice_day = COALESCE($16, auto_invoice_day),
+           zalo_webhook_url = COALESCE($17, zalo_webhook_url),
+           zalo_group_id = COALESCE($18, zalo_group_id),
+           telegram_chat_id = COALESCE($19, telegram_chat_id),
+           notify_on_new_order = COALESCE($20, notify_on_new_order)
          WHERE id = $1 RETURNING *`,
         [
           id,
@@ -206,6 +254,10 @@ export function buildRouter(deps: { pool: Pool; bus: EventBus }): Router {
           body.bankQrCode ? body.bankQrCode : null,
           body.autoInvoice ?? null,
           body.autoInvoiceDay ?? null,
+          body.zaloWebhookUrl ?? null,
+          body.zaloGroupId ?? null,
+          body.telegramChatId ?? null,
+          body.notifyOnNewOrder ?? null,
         ],
       );
       if (
@@ -432,12 +484,26 @@ export function buildRouter(deps: { pool: Pool; bus: EventBus }): Router {
     '/tenants',
     read,
     asyncHandler(async (req, res) => {
+      const { page, limit, offset } = parsePagination(req.query);
       const f = ownerFilter(currentUser(req));
+      const q = (req.query.q as string | undefined)?.trim();
+      const conditions = [f.where];
+      const countParams = [...f.params];
+      if (q) {
+        countParams.push(`%${q}%`);
+        conditions.push(`(full_name ILIKE $${countParams.length} OR phone ILIKE $${countParams.length} OR email ILIKE $${countParams.length} OR id_number ILIKE $${countParams.length} OR street_address ILIKE $${countParams.length})`);
+      }
+      const whereClause = conditions.join(' AND ');
+
+      const countRes = await pool.query(`SELECT COUNT(*)::int AS total FROM tenants WHERE ${whereClause}`, countParams);
+      const total = countRes.rows[0]?.total ?? 0;
+
+      const params = [...countParams, limit, offset];
       const { rows } = await pool.query(
-        `SELECT * FROM tenants WHERE ${f.where} ORDER BY created_at DESC`,
-        f.params,
+        `SELECT * FROM tenants WHERE ${whereClause} ORDER BY created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
+        params,
       );
-      res.json({ items: rows });
+      res.json(paginatedResponse(rows, total, page, limit));
     }),
   );
 
@@ -546,7 +612,34 @@ export function buildRouter(deps: { pool: Pool; bus: EventBus }): Router {
     '/leases',
     read,
     asyncHandler(async (req, res) => {
+      const { page, limit, offset } = parsePagination(req.query);
       const f = ownerFilter(currentUser(req), 'l.owner_id');
+      const status = req.query.status as string | undefined;
+      const q = (req.query.q as string | undefined)?.trim();
+      const conditions = [f.where];
+      const countParams = [...f.params];
+      if (status && ['active', 'terminated'].includes(status)) {
+        countParams.push(status);
+        conditions.push(`l.status = $${countParams.length}`);
+      }
+      if (q) {
+        countParams.push(`%${q}%`);
+        conditions.push(`(u.name ILIKE $${countParams.length} OR p.name ILIKE $${countParams.length} OR t.full_name ILIKE $${countParams.length} OR t.phone ILIKE $${countParams.length})`);
+      }
+      const whereClause = conditions.join(' AND ');
+
+      const countRes = await pool.query(
+        `SELECT COUNT(*)::int AS total
+           FROM leases l
+           JOIN units u ON u.id = l.unit_id
+           JOIN properties p ON p.id = u.property_id
+           JOIN tenants t ON t.id = l.tenant_id
+          WHERE ${whereClause}`,
+        countParams,
+      );
+      const total = countRes.rows[0]?.total ?? 0;
+
+      const params = [...countParams, limit, offset];
       const { rows } = await pool.query(
         `SELECT l.*, u.name AS unit_name, p.name AS property_name, p.address AS property_address,
                 t.full_name AS tenant_name, t.phone AS tenant_phone,
@@ -558,11 +651,12 @@ export function buildRouter(deps: { pool: Pool; bus: EventBus }): Router {
            JOIN units u ON u.id = l.unit_id
            JOIN properties p ON p.id = u.property_id
            JOIN tenants t ON t.id = l.tenant_id
-          WHERE ${f.where}
-          ORDER BY l.created_at DESC`,
-        f.params,
+          WHERE ${whereClause}
+          ORDER BY l.created_at DESC
+          LIMIT $${params.length - 1} OFFSET $${params.length}`,
+        params,
       );
-      res.json({ items: rows });
+      res.json(paginatedResponse(rows, total, page, limit));
     }),
   );
 
@@ -650,6 +744,600 @@ export function buildRouter(deps: { pool: Pool; bus: EventBus }): Router {
         terminatedAt: new Date(lease.terminated_at).toISOString(),
       });
       res.json(lease);
+    }),
+  );
+
+  // ---------- Temporary Residence & Absence (Tạm trú, tạm vắng) ----------
+  router.get(
+    '/residence',
+    read,
+    asyncHandler(async (req, res) => {
+      const user = currentUser(req);
+      const conditions: string[] = [];
+      const params: any[] = [];
+
+      if (user.role !== 'admin') {
+        params.push(user.id);
+        conditions.push(`r.owner_id = $${params.length}`);
+      }
+
+      if (req.query.propertyId) {
+        params.push(req.query.propertyId);
+        conditions.push(`r.property_id = $${params.length}`);
+      }
+
+      if (req.query.status) {
+        params.push(req.query.status);
+        conditions.push(`r.computed_status = $${params.length}`);
+      }
+
+      const searchVal = (req.query.search || req.query.q) as string | undefined;
+      if (searchVal?.trim()) {
+        params.push(`%${searchVal.trim()}%`);
+        const idx = params.length;
+        conditions.push(
+          `(r.full_name ILIKE $${idx} OR r.phone ILIKE $${idx} OR r.id_number ILIKE $${idx} OR r.unit_name ILIKE $${idx} OR r.temp_reg_code ILIKE $${idx})`,
+        );
+      }
+
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+      const { page, limit, offset } = parsePagination(req.query);
+
+      const countQuery = `
+        WITH residents_raw AS (
+          SELECT
+            o.id,
+            o.temp_reg_status,
+            o.temp_reg_end_date,
+            o.full_name,
+            o.phone,
+            o.id_number,
+            o.temp_reg_code,
+            u.name AS unit_name,
+            p.id AS property_id,
+            p.owner_id
+          FROM unit_occupants o
+          JOIN units u ON u.id = o.unit_id
+          JOIN properties p ON p.id = u.property_id
+
+          UNION ALL
+
+          SELECT
+            t.id,
+            t.temp_reg_status,
+            t.temp_reg_end_date,
+            t.full_name,
+            t.phone,
+            t.id_number,
+            t.temp_reg_code,
+            u.name AS unit_name,
+            p.id AS property_id,
+            p.owner_id
+          FROM leases l
+          JOIN tenants t ON t.id = l.tenant_id
+          JOIN units u ON u.id = l.unit_id
+          JOIN properties p ON p.id = u.property_id
+          WHERE l.status = 'active'
+            AND NOT EXISTS (
+              SELECT 1 FROM unit_occupants uo
+              WHERE uo.unit_id = l.unit_id
+                AND (uo.tenant_id = t.id OR (uo.id_number IS NOT NULL AND uo.id_number = t.id_number))
+            )
+        ),
+        residents_computed AS (
+          SELECT
+            r.*,
+            CASE
+              WHEN r.temp_reg_status = 'registered' AND r.temp_reg_end_date IS NOT NULL AND r.temp_reg_end_date < CURRENT_DATE THEN 'expired'
+              WHEN r.temp_reg_status = 'registered' AND r.temp_reg_end_date IS NOT NULL AND r.temp_reg_end_date <= CURRENT_DATE + INTERVAL '30 day' THEN 'expiring_soon'
+              ELSE r.temp_reg_status
+            END AS computed_status
+          FROM residents_raw r
+        )
+        SELECT COUNT(*)::int AS total FROM residents_computed r
+        ${whereClause}
+      `;
+
+      const countRes = await pool.query(countQuery, params);
+      const total = countRes.rows[0]?.total ?? 0;
+
+      params.push(limit);
+      const limitIdx = params.length;
+      params.push(offset);
+      const offsetIdx = params.length;
+
+      const query = `
+        WITH residents_raw AS (
+          SELECT
+            o.id,
+            'occupant'::text AS resident_type,
+            o.full_name,
+            o.phone,
+            o.id_number,
+            o.birth_date,
+            o.gender,
+            o.relationship,
+            o.vehicle_plate,
+            o.is_primary,
+            o.notes,
+            o.temp_reg_status,
+            o.temp_reg_start_date,
+            o.temp_reg_end_date,
+            o.temp_reg_code,
+            o.temp_reg_notes,
+            o.temp_absence_reason,
+            o.temp_absence_destination,
+            o.updated_at,
+            u.id AS unit_id,
+            u.name AS unit_name,
+            p.id AS property_id,
+            p.name AS property_name,
+            p.address AS property_address,
+            p.owner_id
+          FROM unit_occupants o
+          JOIN units u ON u.id = o.unit_id
+          JOIN properties p ON p.id = u.property_id
+
+          UNION ALL
+
+          SELECT
+            t.id,
+            'tenant'::text AS resident_type,
+            t.full_name,
+            t.phone,
+            t.id_number,
+            t.birth_date,
+            t.gender,
+            'Đại diện hợp đồng'::text AS relationship,
+            NULL::text AS vehicle_plate,
+            true AS is_primary,
+            NULL::text AS notes,
+            t.temp_reg_status,
+            t.temp_reg_start_date,
+            t.temp_reg_end_date,
+            t.temp_reg_code,
+            t.temp_reg_notes,
+            t.temp_absence_reason,
+            t.temp_absence_destination,
+            t.updated_at,
+            u.id AS unit_id,
+            u.name AS unit_name,
+            p.id AS property_id,
+            p.name AS property_name,
+            p.address AS property_address,
+            p.owner_id
+          FROM leases l
+          JOIN tenants t ON t.id = l.tenant_id
+          JOIN units u ON u.id = l.unit_id
+          JOIN properties p ON p.id = u.property_id
+          WHERE l.status = 'active'
+            AND NOT EXISTS (
+              SELECT 1 FROM unit_occupants uo
+              WHERE uo.unit_id = l.unit_id
+                AND (uo.tenant_id = t.id OR (uo.id_number IS NOT NULL AND uo.id_number = t.id_number))
+            )
+        ),
+        residents_computed AS (
+          SELECT
+            r.*,
+            CASE
+              WHEN r.temp_reg_status = 'registered' AND r.temp_reg_end_date IS NOT NULL AND r.temp_reg_end_date < CURRENT_DATE THEN 'expired'
+              WHEN r.temp_reg_status = 'registered' AND r.temp_reg_end_date IS NOT NULL AND r.temp_reg_end_date <= CURRENT_DATE + INTERVAL '30 day' THEN 'expiring_soon'
+              ELSE r.temp_reg_status
+            END AS computed_status,
+            CASE
+              WHEN r.temp_reg_end_date IS NOT NULL THEN (r.temp_reg_end_date - CURRENT_DATE)::integer
+              ELSE NULL
+            END AS days_until_expiry
+          FROM residents_raw r
+        )
+        SELECT * FROM residents_computed r
+        ${whereClause}
+        ORDER BY
+          CASE
+            WHEN r.computed_status = 'expiring_soon' THEN 1
+            WHEN r.computed_status = 'expired' THEN 2
+            WHEN r.computed_status = 'not_registered' THEN 3
+            WHEN r.computed_status = 'pending' THEN 4
+            WHEN r.computed_status = 'temporary_absence' THEN 5
+            ELSE 6
+          END,
+          r.property_name, r.unit_name, r.full_name
+        LIMIT $${limitIdx} OFFSET $${offsetIdx}
+      `;
+
+      const { rows } = await pool.query(query, params);
+      res.json(paginatedResponse(rows, total, page, limit));
+    }),
+  );
+
+  router.get(
+    '/residence/stats',
+    read,
+    asyncHandler(async (req, res) => {
+      const user = currentUser(req);
+      const conditions: string[] = [];
+      const params: any[] = [];
+
+      if (user.role !== 'admin') {
+        params.push(user.id);
+        conditions.push(`r.owner_id = $${params.length}`);
+      }
+
+      if (req.query.propertyId) {
+        params.push(req.query.propertyId);
+        conditions.push(`r.property_id = $${params.length}`);
+      }
+
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+      const query = `
+        WITH residents_raw AS (
+          SELECT
+            o.id,
+            o.temp_reg_status,
+            o.temp_reg_end_date,
+            p.id AS property_id,
+            p.owner_id
+          FROM unit_occupants o
+          JOIN units u ON u.id = o.unit_id
+          JOIN properties p ON p.id = u.property_id
+
+          UNION ALL
+
+          SELECT
+            t.id,
+            t.temp_reg_status,
+            t.temp_reg_end_date,
+            p.id AS property_id,
+            p.owner_id
+          FROM leases l
+          JOIN tenants t ON t.id = l.tenant_id
+          JOIN units u ON u.id = l.unit_id
+          JOIN properties p ON p.id = u.property_id
+          WHERE l.status = 'active'
+            AND NOT EXISTS (
+              SELECT 1 FROM unit_occupants uo
+              WHERE uo.unit_id = l.unit_id
+                AND (uo.tenant_id = t.id OR (uo.id_number IS NOT NULL AND uo.id_number = t.id_number))
+            )
+        ),
+        residents_computed AS (
+          SELECT
+            r.*,
+            CASE
+              WHEN r.temp_reg_status = 'registered' AND r.temp_reg_end_date IS NOT NULL AND r.temp_reg_end_date < CURRENT_DATE THEN 'expired'
+              WHEN r.temp_reg_status = 'registered' AND r.temp_reg_end_date IS NOT NULL AND r.temp_reg_end_date <= CURRENT_DATE + INTERVAL '30 day' THEN 'expiring_soon'
+              ELSE r.temp_reg_status
+            END AS computed_status
+          FROM residents_raw r
+        )
+        SELECT
+          COUNT(*)::int AS total,
+          COUNT(*) FILTER (WHERE computed_status = 'not_registered')::int AS not_registered,
+          COUNT(*) FILTER (WHERE computed_status = 'pending')::int AS pending,
+          COUNT(*) FILTER (WHERE computed_status = 'registered')::int AS registered,
+          COUNT(*) FILTER (WHERE computed_status = 'expiring_soon')::int AS expiring_soon,
+          COUNT(*) FILTER (WHERE computed_status = 'expired')::int AS expired,
+          COUNT(*) FILTER (WHERE computed_status = 'temporary_absence')::int AS temporary_absence
+        FROM residents_computed r
+        ${whereClause}
+      `;
+
+      const { rows } = await pool.query(query, params);
+      const stat = rows[0] || {
+        total: 0,
+        not_registered: 0,
+        pending: 0,
+        registered: 0,
+        expiring_soon: 0,
+        expired: 0,
+        temporary_absence: 0,
+      };
+
+      res.json({
+        total: stat.total,
+        notRegistered: stat.not_registered,
+        pending: stat.pending,
+        registered: stat.registered,
+        expiringSoon: stat.expiring_soon,
+        expired: stat.expired,
+        temporaryAbsence: stat.temporary_absence,
+      });
+    }),
+  );
+
+  router.put(
+    '/residence/:type/:id',
+    manage,
+    asyncHandler(async (req, res) => {
+      const type = req.params.type;
+      if (type !== 'occupant' && type !== 'tenant') {
+        throw badRequest('Invalid resident type. Expected occupant or tenant');
+      }
+      const id = validate(uuid, req.params.id);
+      const b = validate(residenceUpdateSchema, req.body);
+      const user = currentUser(req);
+
+      if (type === 'occupant') {
+        const { rows: occRows } = await pool.query(
+          `SELECT o.*, p.owner_id
+             FROM unit_occupants o
+             JOIN units u ON u.id = o.unit_id
+             JOIN properties p ON p.id = u.property_id
+            WHERE o.id = $1`,
+          [id],
+        );
+        const occ = occRows[0];
+        if (!occ) throw notFound('Occupant');
+        assertOwner(user, occ.owner_id);
+
+        const { rows } = await pool.query(
+          `UPDATE unit_occupants SET
+             temp_reg_status = $2,
+             temp_reg_start_date = $3,
+             temp_reg_end_date = $4,
+             temp_reg_code = $5,
+             temp_reg_notes = $6,
+             temp_absence_reason = $7,
+             temp_absence_destination = $8,
+             updated_at = now()
+           WHERE id = $1
+           RETURNING *`,
+          [
+            id,
+            b.tempRegStatus,
+            b.tempRegStartDate ?? null,
+            b.tempRegEndDate ?? null,
+            b.tempRegCode ?? null,
+            b.tempRegNotes ?? null,
+            b.tempAbsenceReason ?? null,
+            b.tempAbsenceDestination ?? null,
+          ],
+        );
+        return res.json(rows[0]);
+      } else {
+        const { rows: tenantRows } = await pool.query('SELECT * FROM tenants WHERE id = $1', [id]);
+        const tenant = tenantRows[0];
+        if (!tenant) throw notFound('Tenant');
+        assertOwner(user, tenant.owner_id);
+
+        const { rows } = await pool.query(
+          `UPDATE tenants SET
+             temp_reg_status = $2,
+             temp_reg_start_date = $3,
+             temp_reg_end_date = $4,
+             temp_reg_code = $5,
+             temp_reg_notes = $6,
+             temp_absence_reason = $7,
+             temp_absence_destination = $8,
+             updated_at = now()
+           WHERE id = $1
+           RETURNING *`,
+          [
+            id,
+            b.tempRegStatus,
+            b.tempRegStartDate ?? null,
+            b.tempRegEndDate ?? null,
+            b.tempRegCode ?? null,
+            b.tempRegNotes ?? null,
+            b.tempAbsenceReason ?? null,
+            b.tempAbsenceDestination ?? null,
+          ],
+        );
+        return res.json(rows[0]);
+      }
+    }),
+  );
+
+  router.get(
+    '/residence/:type/:id/ct01',
+    read,
+    asyncHandler(async (req, res) => {
+      const type = req.params.type;
+      if (type !== 'occupant' && type !== 'tenant') {
+        throw badRequest('Invalid resident type. Expected occupant or tenant');
+      }
+      const id = validate(uuid, req.params.id);
+      const user = currentUser(req);
+
+      let resident: any;
+      let unitId: string;
+      let propertyId: string;
+      let ownerId: string;
+
+      if (type === 'occupant') {
+        const { rows } = await pool.query(
+          `SELECT o.*, u.id AS unit_id, u.name AS unit_name, p.id AS property_id, p.name AS property_name, p.address AS property_address, p.owner_id
+             FROM unit_occupants o
+             JOIN units u ON u.id = o.unit_id
+             JOIN properties p ON p.id = u.property_id
+            WHERE o.id = $1`,
+          [id],
+        );
+        resident = rows[0];
+        if (!resident) throw notFound('Occupant');
+        unitId = resident.unit_id;
+        propertyId = resident.property_id;
+        ownerId = resident.owner_id;
+      } else {
+        const { rows } = await pool.query(
+          `SELECT t.*, u.id AS unit_id, u.name AS unit_name, p.id AS property_id, p.name AS property_name, p.address AS property_address, p.owner_id
+             FROM leases l
+             JOIN tenants t ON t.id = l.tenant_id
+             JOIN units u ON u.id = l.unit_id
+             JOIN properties p ON p.id = u.property_id
+            WHERE t.id = $1 AND l.status = 'active'`,
+          [id],
+        );
+        resident = rows[0];
+        if (!resident) throw notFound('Tenant with active lease');
+        unitId = resident.unit_id;
+        propertyId = resident.property_id;
+        ownerId = resident.owner_id;
+      }
+
+      assertOwner(user, ownerId);
+
+      // Load all other occupants in the same unit
+      const { rows: roomOccupants } = await pool.query(
+        `SELECT id, full_name, birth_date, gender, id_number, phone, relationship, is_primary
+           FROM unit_occupants
+          WHERE unit_id = $1 AND id != $2
+          ORDER BY is_primary DESC, full_name ASC`,
+        [unitId, id],
+      );
+
+      // Format CT01 DTO
+      res.json({
+        declarationType: resident.temp_reg_status === 'temporary_absence' ? 'temporary_absence' : 'temporary_residence',
+        resident: {
+          id: resident.id,
+          type,
+          fullName: resident.full_name,
+          phone: resident.phone || '',
+          idNumber: resident.id_number || '',
+          idIssueDate: resident.id_issue_date || '',
+          gender: resident.gender || '',
+          birthDate: resident.birth_date ? String(resident.birth_date).slice(0, 10) : '',
+          nationality: resident.nationality || 'Việt Nam',
+          relationship: resident.relationship || (resident.is_primary ? 'Đại diện thuê' : 'Người ở cùng'),
+          permanentAddress: resident.street_address
+            ? [resident.street_address, resident.ward, resident.district, resident.city].filter(Boolean).join(', ')
+            : '',
+          tempRegStatus: resident.temp_reg_status,
+          tempRegStartDate: resident.temp_reg_start_date ? String(resident.temp_reg_start_date).slice(0, 10) : '',
+          tempRegEndDate: resident.temp_reg_end_date ? String(resident.temp_reg_end_date).slice(0, 10) : '',
+          tempRegCode: resident.temp_reg_code || '',
+          tempRegNotes: resident.temp_reg_notes || '',
+          tempAbsenceReason: resident.temp_absence_reason || '',
+          tempAbsenceDestination: resident.temp_absence_destination || '',
+        },
+        unit: {
+          id: unitId,
+          name: resident.unit_name,
+        },
+        property: {
+          id: propertyId,
+          name: resident.property_name,
+          address: resident.property_address,
+        },
+        landlord: {
+          id: ownerId,
+          fullName: 'Chủ nhà / Đại diện quản lý',
+        },
+        roomOccupants: roomOccupants.map((o) => ({
+          id: o.id,
+          fullName: o.full_name,
+          birthDate: o.birth_date ? String(o.birth_date).slice(0, 10) : '',
+          gender: o.gender || '',
+          idNumber: o.id_number || '',
+          relationship: o.relationship || 'Người ở cùng',
+          phone: o.phone || '',
+        })),
+      });
+    }),
+  );
+
+  // ---------- Internal Service Verification ----------
+  router.post(
+    '/internal/contracts/validate-tenant',
+    asyncHandler(async (req, res) => {
+      const { propertyId, roomNumber, phoneNumber } = validate(
+        z.object({
+          propertyId: uuid,
+          roomNumber: z.string().min(1),
+          phoneNumber: z.string().min(8),
+        }),
+        req.body,
+      );
+
+      const cleanPhone = phoneNumber.replace(/[^0-9+]/g, '');
+
+      const leaseQuery = `
+        SELECT 
+          l.id AS contract_id,
+          l.tenant_id,
+          l.monthly_rent,
+          l.deposit,
+          l.currency,
+          p.id AS property_id,
+          p.name AS property_name,
+          p.owner_id AS landlord_user_id,
+          p.zalo_webhook_url,
+          p.zalo_group_id,
+          p.telegram_chat_id,
+          p.notify_on_new_order,
+          u.id AS unit_id,
+          u.name AS room_number,
+          t.full_name AS tenant_name,
+          t.phone AS tenant_phone
+        FROM leases l
+        JOIN units u ON u.id = l.unit_id
+        JOIN properties p ON p.id = u.property_id
+        JOIN tenants t ON t.id = l.tenant_id
+        WHERE p.id = $1 
+          AND LOWER(TRIM(u.name)) = LOWER(TRIM($2))
+          AND l.status = 'active'
+        LIMIT 1
+      `;
+
+      const { rows: leaseRows } = await pool.query(leaseQuery, [propertyId, roomNumber]);
+      if (leaseRows.length === 0) {
+        res.json({
+          isValid: false,
+          reason: 'ROOM_NOT_FOUND_OR_INACTIVE',
+          message: `Phòng ${roomNumber} hiện không có hợp đồng thuê nào đang hoạt động.`,
+        });
+        return;
+      }
+
+      const lease = leaseRows[0];
+      const tenantPhoneClean = (lease.tenant_phone || '').replace(/[^0-9+]/g, '');
+      let isPhoneMatched = Boolean(tenantPhoneClean && tenantPhoneClean.endsWith(cleanPhone.slice(-9)));
+
+      if (!isPhoneMatched) {
+        const { rows: occupants } = await pool.query(
+          `SELECT full_name, phone FROM unit_occupants WHERE unit_id = $1`,
+          [lease.unit_id],
+        );
+        for (const occ of occupants) {
+          const occPhoneClean = (occ.phone || '').replace(/[^0-9+]/g, '');
+          if (occPhoneClean && occPhoneClean.endsWith(cleanPhone.slice(-9))) {
+            isPhoneMatched = true;
+            break;
+          }
+        }
+      }
+
+      if (!isPhoneMatched) {
+        res.json({
+          isValid: false,
+          reason: 'PHONE_MISMATCH',
+          message: `Số điện thoại ${phoneNumber} chưa khớp với người thuê hoặc người đăng ký tại phòng ${roomNumber}.`,
+        });
+        return;
+      }
+
+      res.json({
+        isValid: true,
+        contractId: lease.contract_id,
+        tenantId: lease.tenant_id,
+        tenantName: lease.tenant_name,
+        propertyId: lease.property_id,
+        propertyName: lease.property_name,
+        unitId: lease.unit_id,
+        roomNumber: lease.room_number,
+        monthlyRent: Number(lease.monthly_rent),
+        deposit: Number(lease.deposit),
+        currency: lease.currency,
+        landlordUserId: lease.landlord_user_id,
+        zaloWebhookUrl: lease.zalo_webhook_url,
+        zaloGroupId: lease.zalo_group_id,
+        telegramChatId: lease.telegram_chat_id,
+        notifyOnNewOrder: lease.notify_on_new_order,
+      });
     }),
   );
 

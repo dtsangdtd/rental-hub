@@ -13,7 +13,7 @@
           id="tenant-search"
           placeholder="Tìm theo tên, CCCD, SĐT, địa chỉ mới…"
           [ngModel]="query()"
-          (ngModelChange)="query.set($event)"
+          (ngModelChange)="onSearchChange($event)"
         />
       </div>
       @if (canManage()) {
@@ -114,6 +114,15 @@
           </tbody>
         </table>
       </div>
+
+      <app-pagination
+        [total]="total()"
+        [page]="page()"
+        [pageSize]="pageSize()"
+        [pageSizeOptions]="[10, 20, 50]"
+        (pageChange)="onPageChange($event)"
+        (pageSizeChange)="onPageSizeChange($event)"
+      />
     }
   </div>
 </div>

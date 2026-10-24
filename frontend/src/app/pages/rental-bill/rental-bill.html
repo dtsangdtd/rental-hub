@@ -58,23 +58,25 @@
 
   <!-- Realtime Accounting Invoice Status Pill -->
   @if (currentInvoice) {
-    <div class="invoice-status-pill no-print" [class.is-paid]="currentInvoice.status === 'paid'" [class.is-unpaid]="currentInvoice.status === 'unpaid'">
-      <div class="status-left">
-        <span class="status-badge" [class.badge-paid]="currentInvoice.status === 'paid'" [class.badge-unpaid]="currentInvoice.status === 'unpaid'">
-          {{ currentInvoice.status === 'paid' ? '✓ ĐÃ THANH TOÁN' : '⏳ CHƯA THANH TOÁN' }}
-        </span>
-        <span class="inv-number">Hóa đơn Kế toán: <strong>{{ currentInvoice.number }}</strong></span>
-        <span class="inv-amount">Tổng tiền: <strong>{{ currentInvoice.amount | number }} ₫</strong></span>
-        @if (currentInvoice.amount_paid > 0 && currentInvoice.status !== 'paid') {
-          <span class="inv-paid">(Đã thu: {{ currentInvoice.amount_paid | number }} ₫)</span>
-        }
-      </div>
-      <div class="status-actions">
-        <a [routerLink]="['/invoices', currentInvoice.id]" target="_blank" class="status-link">
-          Xem & Ghi nhận thu tiền trong Kế toán →
-        </a>
-      </div>
+  <div class="invoice-status-pill no-print" [class.is-paid]="currentInvoice.status === 'paid'"
+    [class.is-unpaid]="currentInvoice.status === 'unpaid'">
+    <div class="status-left">
+      <span class="status-badge" [class.badge-paid]="currentInvoice.status === 'paid'"
+        [class.badge-unpaid]="currentInvoice.status === 'unpaid'">
+        {{ currentInvoice.status === 'paid' ? '✓ ĐÃ THANH TOÁN' : '⏳ CHƯA THANH TOÁN' }}
+      </span>
+      <span class="inv-number">Hóa đơn Kế toán: <strong>{{ currentInvoice.number }}</strong></span>
+      <span class="inv-amount">Tổng tiền: <strong>{{ currentInvoice.amount | number }} ₫</strong></span>
+      @if (currentInvoice.amount_paid > 0 && currentInvoice.status !== 'paid') {
+      <span class="inv-paid">(Đã thu: {{ currentInvoice.amount_paid | number }} ₫)</span>
+      }
     </div>
+    <div class="status-actions">
+      <a [routerLink]="['/invoices', currentInvoice.id]" target="_blank" class="status-link">
+        Xem & Ghi nhận thu tiền trong Kế toán →
+      </a>
+    </div>
+  </div>
   }
 
   <!-- Responsive View Mode & Zoom Toolbar -->
@@ -208,16 +210,22 @@
           <span class="prorated-amount">{{ proratedInfo?.amount | number }} ₫</span>
         </div>
         <div class="prorated-desc">
-          Khách vào ở từ <strong>{{ proratedInfo?.stayStartFormatted }}</strong> đến hết ngày <strong>{{ proratedInfo?.stayEndFormatted }}</strong> (chốt hóa đơn ngày {{ selectedLease?.due_day || selectedProperty?.auto_invoice_day || 5 }}).
+          Khách vào ở từ <strong>{{ proratedInfo?.stayStartFormatted }}</strong> đến hết ngày <strong>{{
+            proratedInfo?.stayEndFormatted }}</strong> (chốt hóa đơn ngày {{ selectedLease?.due_day ||
+          selectedProperty?.auto_invoice_day || 5 }}).
         </div>
         <div class="prorated-formula">
-          💡 Công thức: ({{ (selectedLease?.monthly_rent || 0) | number }} ₫ ÷ 30 ngày) × {{ proratedInfo?.daysStayed }} ngày = <strong>{{ proratedInfo?.amount | number }} ₫</strong>
+          💡 Công thức: ({{ (selectedLease?.monthly_rent || 0) | number }} ₫ ÷ 30 ngày) × {{ proratedInfo?.daysStayed }}
+          ngày = <strong>{{ proratedInfo?.amount | number }} ₫</strong>
         </div>
         <div class="prorated-adjust">
           <span>Tùy chỉnh số ngày:</span>
-          <button type="button" class="btn-day-adjust" (click)="applyCustomProratedDays((proratedInfo?.daysStayed || 0) - 1)">-1 ngày</button>
-          <button type="button" class="btn-day-adjust" (click)="applyCustomProratedDays((proratedInfo?.daysStayed || 0) + 1)">+1 ngày</button>
-          <button type="button" class="btn-day-reset" (click)="updateRentItemForCurrentPeriod()">Khôi phục tự động</button>
+          <button type="button" class="btn-day-adjust"
+            (click)="applyCustomProratedDays((proratedInfo?.daysStayed || 0) - 1)">-1 ngày</button>
+          <button type="button" class="btn-day-adjust"
+            (click)="applyCustomProratedDays((proratedInfo?.daysStayed || 0) + 1)">+1 ngày</button>
+          <button type="button" class="btn-day-reset" (click)="updateRentItemForCurrentPeriod()">Khôi phục tự
+            động</button>
         </div>
       </div>
 
@@ -225,7 +233,7 @@
       <div class="form-group">
         <label class="form-label">Địa chỉ / Cơ sở / Phòng:</label>
         <input type="text" class="input-field" [(ngModel)]="address" (change)="onAddressChange()"
-          placeholder="VD: Nhà 123 Cầu Giấy - Phòng 302" />
+          placeholder="VD: Nhà 79 An Định - Phòng 302" />
       </div>
 
       <!-- Occupants in this Unit -->

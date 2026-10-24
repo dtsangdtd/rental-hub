@@ -9,6 +9,8 @@ import { MeterReadingService, UnitMeterReading } from '../../core/meter-reading.
 import { Invoice, InvoiceDetail, Lease, Property, Tenant, UnitOccupant } from '../../core/models';
 import { vietnameseCurrencyToWords } from '../../core/vietnamese-currency';
 import { readFileAsDataUrl } from '../../core/image-util';
+import { I18nService } from '../../core/i18n.service';
+import { TranslatePipe } from '../../shared/format';
 
 export interface BillItem {
   id: string;
@@ -34,6 +36,7 @@ export class RentalBillPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly meterService = inject(MeterReadingService);
   private readonly cdr = inject(ChangeDetectorRef);
+  protected readonly i18n = inject(I18nService);
 
   @ViewChild('billSheet') billSheet!: ElementRef<HTMLDivElement>;
 
@@ -67,7 +70,7 @@ export class RentalBillPage implements OnInit {
 
   // Responsive view mode and zoom controls
   viewMode: 'split' | 'editor' | 'preview' = 'split';
-  sheetZoom = 85;
+  sheetZoom = 70;
 
   items: BillItem[] = [];
 
@@ -330,7 +333,6 @@ export class RentalBillPage implements OnInit {
       { id: '4', name: 'Tiền mạng', isMeter: false, quantity: 1, unit: 'Phòng', unitPrice: netPrice, total: netPrice },
       { id: '5', name: 'Tiền vệ sinh', isMeter: false, quantity: 1, unit: 'Người', unitPrice: cleanPrice, total: cleanPrice },
       { id: '6', name: 'Tiền giữ xe', isMeter: false, quantity: 1, unit: 'Xe', unitPrice: parkPrice, total: parkPrice },
-      { id: '7', name: 'Tiền máy giặt', isMeter: false, quantity: 1, unit: 'Phòng', unitPrice: 50000, total: 50000 },
     ];
     this.syncSavedReadingsForCurrentPeriod();
   }

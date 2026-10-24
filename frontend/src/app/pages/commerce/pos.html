@@ -1,0 +1,439 @@
+<div class="pos-layout">
+  <!-- POS Top Bar -->
+  <header class="pos-topbar">
+    <div class="pos-brand">
+      <div class="pos-logo">
+        <app-icon name="barcode" [size]="22" />
+      </div>
+      <div>
+        <div class="brand-title">Rental<b>Hub</b> POS Terminal</div>
+        <div class="brand-subtitle">Máy Quét Mã Vạch &amp; Bán Hàng Tại Quầy (7-Eleven Style)</div>
+      </div>
+    </div>
+
+    <div class="pos-top-actions">
+      <!-- Hub Selector -->
+      @if (hubs().length > 0) {
+      <div class="hub-pill">
+        <app-icon name="building" [size]="15" />
+        <select class="hub-dropdown" [ngModel]="selectedHubId()" (ngModelChange)="onHubChange($event)">
+          @for (h of hubs(); track h.id) {
+          <option [value]="h.id">{{ h.name }}</option>
+          }
+        </select>
+      </div>
+      }
+
+      <!-- Inbound Inventory Trigger -->
+      <button class="btn btn-secondary btn-sm" id="pos-inbound-btn" (click)="openInboundModal()">
+        <app-icon name="package" [size]="15" /> Nhập Kho Mã Vạch
+      </button>
+
+      <a routerLink="/shop" class="btn btn-ghost btn-sm" title="Vào cửa hàng khách mua">
+        <app-icon name="bag" [size]="15" /> Xem Cửa Hàng
+      </a>
+    </div>
+  </header>
+
+  <!-- Main POS Workbench -->
+  <div class="pos-body">
+    <!-- LEFT COLUMN: Barcode Scanner & Quick Pick Items -->
+    <div class="pos-catalog-column">
+      <!-- High-Priority Barcode Scanner Input -->
+      <div class="barcode-box">
+        <div class="barcode-input-wrap">
+          <div class="scanner-status" [class.scanning]="isScanning()">
+            <app-icon name="scan" [size]="22" />
+          </div>
+          <input #barcodeInput class="input barcode-input" id="pos-barcode-scanner" type="text"
+            placeholder="Quét mã vạch sản phẩm (hoặc gõ barcode/SKU rồi nhấn Enter)..." [(ngModel)]="barcodeCode"
+            (keydown.enter)="onBarcodeScanSubmit()" autocomplete="off" spellcheck="false" />
+          <button class="btn btn-accent scan-btn" id="pos-scan-submit-btn" (click)="onBarcodeScanSubmit()"
+            [disabled]="isScanning()">
+            @if (isScanning()) {
+            <span class="spinner"></span>
+            } @else {
+            <app-icon name="barcode" [size]="16" />
+            }
+            <span>Quét Mã</span>
+          </button>
+        </div>
+
+        <div class="barcode-hint">
+          <span>💡 <b>Cắm máy quét mã vạch (USB/Bluetooth):</b> Chỉ cần bắn vào mã vạch trên sản phẩm, hệ thống sẽ tự
+            động thêm vào giỏ hàng ngay lập tức kèm âm thanh Beep.</span>
+        </div>
+
+        @if (scanError()) {
+        <div class="scan-alert alert danger mt">
+          <app-icon name="alert" [size]="16" />
+          <span>{{ scanError() }}</span>
+        </div>
+        }
+      </div>
+
+      <!-- Quick Pick Convenience Items (Top Sellers) -->
+      <div class="quick-picks-section">
+        <div class="section-heading">
+          <div class="heading-title">
+            <app-icon name="sparkle" [size]="16" />
+            <h3>Sản Phẩm Bán Nhanh Tại Quầy</h3>
+          </div>
+          <span class="faint small">Chạm hoặc click để thêm vào đơn</span>
+        </div>
+
+        <div class="quick-grid">
+          @for (p of quickProducts(); track p.id) {
+          <div class="quick-card" (click)="addItemToCart(p)">
+            <div class="card-top">
+              <span class="cat-pill">{{ p.category_name || p.category }}</span>
+              <span class="stock-badge" [class.low]="(p.hub_stock ?? p.stock) <= 10">
+                Kho: {{ p.hub_stock ?? p.stock }}
+              </span>
+            </div>
+            <div class="card-name" [title]="p.name">{{ p.name }}</div>
+            <div class="card-bottom">
+              <div class="price-val">{{ p.price | money: p.currency }}</div>
+              <div class="uom-val">{{ p.base_uom || 'Cái' }}</div>
+            </div>
+
+            <!-- Extra packaging buttons if available -->
+            @if (p.uoms && p.uoms.length > 1) {
+            <div class="uom-quick-pills" (click)="$event.stopPropagation()">
+              @for (u of p.uoms; track u.id) {
+              <button type="button" class="uom-pill-btn" (click)="addItemToCart(p, u)"
+                [title]="u.uom_name + ' - ' + (u.retail_price | money: p.currency)">
+                {{ u.uom_name }}
+              </button>
+              }
+            </div>
+            }
+          </div>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN: Order Register & Payment Checkout -->
+    <div class="pos-register-column">
+      <div class="register-card">
+        <!-- Register Header -->
+        <div class="register-header">
+          <div class="header-info">
+            <h2>Hóa Đơn Bán Hàng</h2>
+            <span class="item-count-badge">{{ totalItemsCount() }} món</span>
+          </div>
+          @if (cart().length > 0) {
+          <button class="btn btn-ghost btn-sm text-danger" (click)="clearCart()" title="Xóa tất cả món">
+            <app-icon name="trash" [size]="14" /> Xóa đơn
+          </button>
+          }
+        </div>
+
+        <!-- Cart Items List -->
+        <div class="register-items-wrap">
+          @if (cart().length === 0) {
+          <div class="empty-register">
+            <div class="empty-icon">
+              <app-icon name="barcode" [size]="36" />
+            </div>
+            <h4>Chưa có món hàng nào</h4>
+            <p>Quét mã vạch sản phẩm hoặc click chọn sản phẩm nhanh bên trái để bắt đầu thanh toán.</p>
+          </div>
+          } @else {
+          <div class="items-list">
+            @for (item of cart(); track item.product.id + (item.uom?.id || ''); let idx = $index) {
+            <div class="cart-line-item">
+              <div class="line-info">
+                <div class="item-name">{{ item.product.name }}</div>
+                <div class="item-meta">
+                  <span class="badge">{{ item.uom?.uom_name || item.product.base_uom || 'Cái' }}</span>
+                  <span class="unit-price">{{ item.unitPrice | money: item.product.currency }}</span>
+                </div>
+              </div>
+
+              <div class="line-controls">
+                <div class="qty-stepper">
+                  <button class="step-btn" (click)="updateQuantity(idx, -1)">-</button>
+                  <span class="qty-num">{{ item.quantity }}</span>
+                  <button class="step-btn" (click)="updateQuantity(idx, 1)">+</button>
+                </div>
+
+                <div class="line-subtotal">
+                  {{ item.subtotal | money: item.product.currency }}
+                </div>
+
+                <button class="remove-btn" (click)="removeItem(idx)" title="Xóa món này">
+                  <app-icon name="x" [size]="14" />
+                </button>
+              </div>
+            </div>
+            }
+          </div>
+          }
+        </div>
+
+        <!-- Customer & Payment Selector -->
+        <div class="register-footer">
+          <!-- Customer Type Tabs -->
+          <div class="customer-tabs">
+            <button type="button" class="cust-tab" [class.active]="customerType() === 'RETAIL'"
+              (click)="customerType.set('RETAIL')">
+              🚶 Khách Vãng Lai / Mua Lẻ
+            </button>
+            <button type="button" class="cust-tab" [class.active]="customerType() === 'TENANT'"
+              (click)="customerType.set('TENANT')">
+              🏢 Khách Thuê Phòng
+            </button>
+          </div>
+
+          <!-- Customer info inputs -->
+          <div class="customer-inputs">
+            @if (customerType() === 'TENANT') {
+            <div class="field mb-2">
+              <label for="pos-room-num">Số phòng khách thuê <span class="text-danger">*</span></label>
+              <input class="input" id="pos-room-num" placeholder="Nhập số phòng (VD: 101, 202, P301)..."
+                [ngModel]="roomNumber()" (ngModelChange)="roomNumber.set($event)" />
+            </div>
+            } @else {
+            <div class="row gap-2 mb-2">
+              <div class="field flex-1">
+                <label for="pos-cust-name">Tên khách (tùy chọn)</label>
+                <input class="input" id="pos-cust-name" placeholder="Khách lẻ..." [ngModel]="customerName()"
+                  (ngModelChange)="customerName.set($event)" />
+              </div>
+              <div class="field flex-1">
+                <label for="pos-cust-phone">SĐT (tích điểm/tra cứu)</label>
+                <input class="input" id="pos-cust-phone" placeholder="09xxx..." [ngModel]="customerPhone()"
+                  (ngModelChange)="customerPhone.set($event)" />
+              </div>
+            </div>
+            }
+          </div>
+
+          <!-- Payment Methods -->
+          <div class="payment-methods-grid">
+            <button type="button" class="pay-btn" [class.active]="paymentMethod() === 'CASH'"
+              (click)="paymentMethod.set('CASH')">
+              💵 Tiền Mặt
+            </button>
+
+            <button type="button" class="pay-btn" [class.active]="paymentMethod() === 'VIETQR'"
+              (click)="paymentMethod.set('VIETQR')">
+              📲 VietQR
+            </button>
+
+            @if (customerType() === 'TENANT') {
+            <button type="button" class="pay-btn debt-btn" [class.active]="paymentMethod() === 'DEBT_ADDED_TO_RENT'"
+              (click)="paymentMethod.set('DEBT_ADDED_TO_RENT')">
+              📋 Ghi Nợ Tiền Phòng
+            </button>
+            }
+          </div>
+
+          <!-- Cash Assistant (Calculator & Change) -->
+          @if (paymentMethod() === 'CASH' && cart().length > 0) {
+          <div class="cash-assistant-box">
+            <div class="quick-cash-row">
+              <span class="small faint">Tiền khách đưa:</span>
+              <button type="button" class="cash-chip" (click)="setExactCash()">Đủ tiền</button>
+              <button type="button" class="cash-chip" (click)="setQuickCash(50000)">50k</button>
+              <button type="button" class="cash-chip" (click)="setQuickCash(100000)">100k</button>
+              <button type="button" class="cash-chip" (click)="setQuickCash(200000)">200k</button>
+              <button type="button" class="cash-chip" (click)="setQuickCash(500000)">500k</button>
+            </div>
+
+            <div class="row align-center gap-2 mt">
+              <div class="field flex-1">
+                <input class="input cash-input" type="number" placeholder="Nhập số tiền khách đưa..."
+                  [ngModel]="cashGiven()" (ngModelChange)="cashGiven.set($event)" />
+              </div>
+              <div class="change-display flex-1">
+                <div class="change-label">Tiền thối lại:</div>
+                <div class="change-amount">{{ cashReturned() | money: 'VND' }}</div>
+              </div>
+            </div>
+          </div>
+          }
+
+          <!-- VietQR Instant Code Preview -->
+          @if (paymentMethod() === 'VIETQR' && cart().length > 0) {
+          <div class="vietqr-counter-preview">
+            <img [src]="counterVietQrUrl()" alt="VietQR Counter Payment" class="qr-img" />
+            <div class="qr-text">
+              <strong>Quét mã VietQR chuyển khoản</strong>
+              <p>Khách mở ứng dụng ngân hàng / MoMo quét mã thanh toán đúng <b>{{ totalAmount() | money: 'VND' }}</b>
+              </p>
+            </div>
+          </div>
+          }
+
+          <!-- Total Calculation -->
+          <div class="grand-total-row">
+            <div class="total-label">Tổng Thanh Toán:</div>
+            <div class="total-value">{{ totalAmount() | money: 'VND' }}</div>
+          </div>
+
+          <!-- Process Checkout Button -->
+          <button class="btn btn-primary btn-block checkout-submit-btn" id="pos-submit-checkout-btn"
+            [disabled]="cart().length === 0 || checkingOut()" (click)="processCheckout()">
+            @if (checkingOut()) {
+            <span class="spinner"></span>
+            } @else {
+            <app-icon name="check" [size]="18" />
+            }
+            <span>HOÀN TẤT &amp; IN HÓA ĐƠN (ENTER)</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal In Hóa Đơn Bán Lẻ (Receipt Modal - 80mm standard) -->
+@if (showReceiptModal()) {
+<app-modal title="Hóa Đơn Thanh Toán POS" (closed)="showReceiptModal.set(false)">
+  @if (receiptData(); as r) {
+  <div class="receipt-paper" id="pos-print-area">
+    <div class="receipt-header">
+      <div class="receipt-logo">Cửa hàng tiện lợi</div>
+      <div class="receipt-store">{{ r.storeName }}</div>
+      <div class="receipt-addr">{{ r.storeAddress }}</div>
+      <div class="receipt-divider">================================</div>
+      <div class="receipt-meta">
+        <div>Mã đơn: <b>{{ r.orderNumber }}</b></div>
+        <div>Ngày: {{ r.createdAt | date: 'dd/MM/yyyy HH:mm:ss' }}</div>
+        <div>Thu ngân: {{ r.cashierName }}</div>
+        <div>Khách: {{ r.customerName || (r.customerType === 'TENANT' ? ('Phòng ' + r.roomNumber) : 'Khách lẻ') }}</div>
+      </div>
+      <div class="receipt-divider">--------------------------------</div>
+    </div>
+
+    <table class="receipt-table">
+      <thead>
+        <tr>
+          <th class="left">Tên món</th>
+          <th class="center">SL</th>
+          <th class="right">Đ.Giá</th>
+          <th class="right">T.Tiền</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (item of receiptItems(); track item.product.id) {
+        <tr>
+          <td class="left">
+            <div>{{ item.product.name }}</div>
+            <div class="small faint">({{ item.uom?.uom_name || item.product.base_uom }})</div>
+          </td>
+          <td class="center">{{ item.quantity }}</td>
+          <td class="right">{{ item.unitPrice | currency: 'VND':'symbol':'1.0-0' }}</td>
+          <td class="right font-bold">{{ item.subtotal | currency: 'VND':'symbol':'1.0-0' }}</td>
+        </tr>
+        }
+      </tbody>
+    </table>
+
+    <div class="receipt-divider">--------------------------------</div>
+    <div class="receipt-totals">
+      <div class="receipt-row total">
+        <span>TỔNG CỘNG:</span>
+        <span>{{ r.total | currency: 'VND':'symbol':'1.0-0' }}</span>
+      </div>
+      <div class="receipt-row">
+        <span>Hình thức:</span>
+        <span>{{ r.paymentMethod === 'CASH' ? 'Tiền mặt' : (r.paymentMethod === 'VIETQR' ? 'Chuyển khoản VietQR' : 'Ghi
+          nợ tiền phòng') }}</span>
+      </div>
+      @if (r.cashGiven) {
+      <div class="receipt-row">
+        <span>Tiền khách đưa:</span>
+        <span>{{ r.cashGiven | currency: 'VND':'symbol':'1.0-0' }}</span>
+      </div>
+      <div class="receipt-row">
+        <span>Tiền thối lại:</span>
+        <span>{{ r.cashReturned | currency: 'VND':'symbol':'1.0-0' }}</span>
+      </div>
+      }
+    </div>
+
+    <div class="receipt-divider">================================</div>
+    <div class="receipt-footer">
+      <div>CẢM ƠN QUÝ KHÁCH &amp; HẸN GẶP LẠI!</div>
+      <div class="small faint">Hotline/Zalo: 0988.776.655</div>
+    </div>
+  </div>
+  }
+
+  <div modal-actions class="row gap-2">
+    <button class="btn btn-secondary" (click)="showReceiptModal.set(false)">Đóng</button>
+    <button class="btn btn-primary" id="print-receipt-btn" (click)="printReceipt()">
+      <app-icon name="printer" [size]="16" /> In Hóa Đơn (80mm)
+    </button>
+  </div>
+</app-modal>
+}
+
+<!-- Modal Nhập Kho Bằng Máy Quét Mã Vạch (Barcode Inbound Stocking) -->
+@if (showInboundModal()) {
+<app-modal title="Nhập Kho Bằng Máy Quét Mã Vạch" (closed)="showInboundModal.set(false)">
+  <form (ngSubmit)="submitInboundStock()">
+    <div class="field mb-3">
+      <label for="inbound-barcode">Quét mã vạch sản phẩm / thùng hàng <span class="text-danger">*</span></label>
+      <div class="row gap-2">
+        <input class="input barcode-input" id="inbound-barcode" placeholder="Quét mã vạch (EAN-13, thùng, lon)..."
+          [(ngModel)]="inboundBarcode" name="barcode" (keydown.enter)="onInboundBarcodeScan()" required autofocus />
+        <button type="button" class="btn btn-secondary" (click)="onInboundBarcodeScan()">
+          <app-icon name="search" [size]="14" /> Tìm
+        </button>
+      </div>
+      <div class="faint small mt-1">Cắm máy quét bắn trực tiếp vào ô này rồi nhấn Enter.</div>
+    </div>
+
+    @if (inboundProduct(); as p) {
+    <div class="inbound-preview card mb-3">
+      <div class="font-bold text-accent">{{ p.name }}</div>
+      <div class="row gap-2 mt-1 small">
+        <span>SKU: <b>{{ p.sku }}</b></span>
+        <span>ĐVT cơ sở: <b>{{ p.base_uom }}</b></span>
+        @if (inboundUom(); as u) {
+        <span class="badge" style="background: hsla(210,90%,60%,0.2); color:#60a5fa">
+          Quy cách quét: {{ u.uom_name }} (1 quy cách = {{ u.conversion_factor }} {{ p.base_uom }})
+        </span>
+        }
+      </div>
+    </div>
+    }
+
+    <div class="row gap-2 mb-3">
+      <div class="field flex-1">
+        <label for="inbound-qty">Số lượng nhập <span class="text-danger">*</span></label>
+        <input class="input" id="inbound-qty" type="number" min="1" [(ngModel)]="inboundQty" name="qty" required />
+      </div>
+      <div class="field flex-1">
+        <label for="inbound-exp">Hạn sử dụng (EXP Date) <span class="text-danger">*</span></label>
+        <input class="input" id="inbound-exp" type="date" [(ngModel)]="inboundExpDate" name="expDate" required />
+      </div>
+    </div>
+
+    <div class="row gap-2 mb-3">
+      <div class="field flex-1">
+        <label for="inbound-batch">Số Lô Sản Xuất (Batch No)</label>
+        <input class="input" id="inbound-batch" [(ngModel)]="inboundBatchNo" name="batchNo"
+          placeholder="LOT-YYYYMMDD-..." />
+      </div>
+      <div class="field flex-1">
+        <label for="inbound-cost">Giá vốn nhập (VND)</label>
+        <input class="input" id="inbound-cost" type="number" min="0" [(ngModel)]="inboundCostPrice" name="costPrice" />
+      </div>
+    </div>
+
+    <div modal-actions class="row gap-2">
+      <button type="button" class="btn btn-secondary" (click)="showInboundModal.set(false)">Hủy</button>
+      <button type="submit" class="btn btn-primary" [disabled]="inboundLoading()">
+        @if (inboundLoading()) { <span class="spinner"></span> }
+        <app-icon name="check" [size]="15" /> Lưu Nhập Kho FIFO
+      </button>
+    </div>
+  </form>
+</app-modal>
+}

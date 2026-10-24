@@ -19,6 +19,25 @@ export interface NewInvoice {
  * returns null if the invoice already exists.
  */
 export async function createInvoice(db: Queryable, inv: NewInvoice) {
+  if (inv.referenceType === 'order' && inv.referenceId) {
+    const { rows: existing } = await db.query(
+      `SELECT * FROM invoices WHERE reference_type = 'order' AND reference_id = $1`,
+      [inv.referenceId],
+    );
+    if (existing[0]) {
+      const updated = await db.query(
+        `UPDATE invoices SET
+           owner_id = COALESCE($1, owner_id),
+           customer_id = COALESCE($2, customer_id),
+           period = COALESCE($3, period),
+           metadata = COALESCE($4, metadata)
+         WHERE id = $5 RETURNING *`,
+        [inv.ownerId, inv.customerId, inv.period ?? null, inv.metadata ? JSON.stringify(inv.metadata) : null, existing[0].id],
+      );
+      return updated.rows[0];
+    }
+  }
+
   const { rows } = await db.query(
     `INSERT INTO invoices (number, owner_id, customer_id, reference_type, reference_id, kind, period,
                            description, amount, currency, due_date, metadata)

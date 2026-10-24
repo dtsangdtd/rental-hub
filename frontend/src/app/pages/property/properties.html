@@ -6,7 +6,7 @@
       <p class="subtitle">{{ items().length }} tòa nhà · {{ totalUnits() }} phòng cho thuê</p>
     </div>
     <div class="row">
-      <div class="search"><app-icon name="search" [size]="16" /><input class="input" id="property-search" placeholder="Tìm theo tên hoặc địa chỉ tòa nhà…" [(ngModel)]="q" /></div>
+      <div class="search"><app-icon name="search" [size]="16" /><input class="input" id="property-search" placeholder="Tìm theo tên hoặc địa chỉ tòa nhà…" [(ngModel)]="q" (ngModelChange)="onSearchChange()" /></div>
       @if (canManage()) {
         <button class="btn btn-primary" id="property-new" (click)="openCreate()"><app-icon name="plus" /> Thêm tòa nhà mới</button>
       }
@@ -47,6 +47,14 @@
         </a>
       }
     </div>
+
+    <app-pagination
+      [total]="total()"
+      [page]="page()"
+      [pageSize]="pageSize()"
+      (pageChange)="onPageChange($event)"
+      (pageSizeChange)="onPageSizeChange($event)"
+    />
   }
 </div>
 

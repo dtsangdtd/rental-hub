@@ -9,6 +9,8 @@ import {
   Events,
   isUniqueViolation,
   notFound,
+  paginatedResponse,
+  parsePagination,
   requireAuth,
   requireRole,
   ROLES,
@@ -126,9 +128,26 @@ export function buildRouter(deps: { pool: Pool; bus: EventBus; jwtSecret: string
     '/users',
     requireAuth(jwtSecret),
     requireRole('admin'),
-    asyncHandler(async (_req, res) => {
-      const { rows } = await pool.query<UserRow>('SELECT * FROM users ORDER BY created_at DESC');
-      res.json({ items: rows.map(toDto) });
+    asyncHandler(async (req, res) => {
+      const { page, limit, offset } = parsePagination(req.query);
+      const q = (req.query.q as string | undefined)?.trim();
+      const where: string[] = [];
+      const countParams: unknown[] = [];
+      if (q) {
+        countParams.push(`%${q}%`);
+        where.push(`(full_name ILIKE $${countParams.length} OR email ILIKE $${countParams.length})`);
+      }
+      const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+      const countRes = await pool.query<{ total: number }>(`SELECT COUNT(*)::int AS total FROM users ${whereClause}`, countParams);
+      const total = countRes.rows[0]?.total ?? 0;
+
+      const pagedParams = [...countParams, limit, offset];
+      const { rows } = await pool.query<UserRow>(
+        `SELECT * FROM users ${whereClause} ORDER BY created_at DESC LIMIT $${pagedParams.length - 1} OFFSET $${pagedParams.length}`,
+        pagedParams,
+      );
+      res.json(paginatedResponse(rows.map(toDto), total, page, limit));
     }),
   );
 

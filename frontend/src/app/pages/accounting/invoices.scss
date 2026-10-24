@@ -1,6 +1,13 @@
 .toolbar {
   padding: 16px 20px;
   border-bottom: 1px solid var(--border);
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.status-chips {
+  border-left: 1px solid var(--border);
+  padding-left: 10px;
 }
 
 .period-input {

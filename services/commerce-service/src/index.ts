@@ -7,6 +7,7 @@ import {
   envNumber,
   errorHandler,
   EventBus,
+  optionalAuth,
   requireAuth,
   runMigrations,
 } from '@rental/common';
@@ -28,7 +29,24 @@ async function main() {
   await registerConsumers(pool, bus, logger);
 
   const app = createApp(SERVICE);
-  app.use(requireAuth(jwtSecret));
+  const auth = requireAuth(jwtSecret);
+  const optAuth = optionalAuth(jwtSecret);
+
+  app.use((req, res, next) => {
+    const isPublic =
+      req.path === '/checkout' ||
+      req.path === '/categories' ||
+      req.path === '/hubs' ||
+      req.path.startsWith('/guest/') ||
+      req.path.startsWith('/events/') ||
+      (req.method === 'GET' && (req.path === '/products' || req.path.startsWith('/products/'))) ||
+      (req.method === 'GET' && req.path.startsWith('/orders/'));
+    if (isPublic) {
+      return optAuth(req, res, next);
+    }
+    return auth(req, res, next);
+  });
+
   app.use('/', buildRouter({ pool, bus }));
   app.use(errorHandler(logger));
 

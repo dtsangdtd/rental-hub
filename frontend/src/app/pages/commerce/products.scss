@@ -1,3 +1,100 @@
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tabs-nav {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+}
+
+.tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-2);
+  font-weight: 600;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: all 0.2s var(--ease);
+
+  &:hover {
+    color: var(--text);
+    background: var(--surface-2);
+  }
+
+  &.active {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(79, 70, 229, 0.25));
+    border-color: rgba(99, 102, 241, 0.5);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+
+    app-icon {
+      color: var(--primary);
+    }
+  }
+}
+
+.barcode-tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  font-size: 11px;
+}
+
+.cat-icon-badge {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+}
+
+.barcode-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 12px;
+
+  .barcode-input {
+    border: none;
+    background: transparent;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    color: var(--text);
+    width: 100%;
+
+    &:focus {
+      outline: none;
+    }
+  }
+}
+
+.checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
 .skeleton-wrap {
   padding: 20px;
 }
@@ -11,5 +108,7 @@
 }
 
 .form-actions {
+  display: flex;
   justify-content: flex-end;
+  gap: 10px;
 }
